@@ -6,16 +6,72 @@
 }
 
 .control-group {
-  padding: 1rem;
   border: 1px solid #333;
   border-radius: 0.5rem;
   background: rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
-.control-group h4 {
-  margin: 0 0 0.5rem 0;
+.control-group.static {
+  padding: 1rem;
+}
+
+.control-group-header {
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background-color 0.2s ease;
+}
+
+.control-group-header:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.control-group-header h4 {
+  margin: 0;
   color: #fff;
   font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.control-group-toggle {
+  color: #999;
+  font-size: 1.2rem;
+  transition: transform 0.2s ease;
+}
+
+.control-group-toggle.expanded {
+  transform: rotate(90deg);
+}
+
+.control-group-content {
+  padding: 1rem;
+  max-height: 1000px; /* Large enough for any content */
+  opacity: 1;
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
+}
+
+.control-group-content.collapsed {
+  max-height: 0;
+  padding: 0 1rem;
+  opacity: 0;
+}
+
+/* Smooth transitions for labels and inputs */
+.control-group-content label {
+  transition: all 0.3s ease;
+}
+
+.collapsed .control-group-content label {
+  margin: 0;
 }
 
 .control-group label {

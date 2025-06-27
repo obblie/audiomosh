@@ -33,6 +33,46 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
   const animationIdRef = useRef<number | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
 
+  // Collapsible section state
+  const [collapsedSections, setCollapsedSections] = useState({
+    basic: false,
+    camera: false,
+    transform: true, // Start collapsed since it's less commonly used
+  });
+
+  const toggleSection = (section: keyof typeof collapsedSections) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  // Collapsible section component
+  const CollapsibleSection: React.FC<{
+    title: string;
+    sectionKey: keyof typeof collapsedSections;
+    children: React.ReactNode;
+  }> = ({ title, sectionKey, children }) => {
+    const isCollapsed = collapsedSections[sectionKey];
+    
+    return (
+      <div className="control-group">
+        <div 
+          className="control-group-header"
+          onClick={() => toggleSection(sectionKey)}
+        >
+          <h4>{title}</h4>
+          <span className={`control-group-toggle ${!isCollapsed ? 'expanded' : ''}`}>
+            ▶
+          </span>
+        </div>
+        <div className={`control-group-content ${isCollapsed ? 'collapsed' : ''}`}>
+          {children}
+        </div>
+      </div>
+    );
+  };
+
   // Initialize Three.js scene
   useEffect(() => {
     if (!mountRef.current || !enabled) return;
@@ -289,7 +329,7 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
   return (
     <Section name="3D Video Texture">
       <div className="threejs-controls">
-        <div className="control-group">
+        <div className="control-group static">
           <button 
             onClick={() => onSettingsChange({ ...settings, enabled: false })}
             style={{ marginBottom: '1rem', padding: '0.5rem 1rem', background: '#dc3545', color: 'white', border: 'none', borderRadius: '0.25rem' }}
@@ -298,7 +338,7 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
           </button>
         </div>
         
-        <div className="control-group">
+        <CollapsibleSection title="🎮 Basic Controls" sectionKey="basic">
           <label>
             Shape:
             <select
@@ -370,10 +410,9 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
             />
             Audio Reactive
           </label>
-        </div>
+        </CollapsibleSection>
 
-        <div className="control-group">
-          <h4>🖱️ Mouse Camera Controls</h4>
+        <CollapsibleSection title="🖱️ Mouse Camera Controls" sectionKey="camera">
           
           <label>
             <input
@@ -474,10 +513,9 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
               <span>{settings.cameraControls.maxDistance.toFixed(1)}</span>
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
 
-        <div className="control-group">
-          <h4>Transform</h4>
+        <CollapsibleSection title="🔧 Transform Controls" sectionKey="transform">
           
           <div className="transform-controls">
             <div>
@@ -576,7 +614,7 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
               <span>{settings.rotation.z.toFixed(1)}</span>
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
       </div>
 
       <div 
