@@ -87,6 +87,13 @@ export interface ThreeJSSettings {
   autoRotate: boolean;
   autoRotateSpeed: number;
   audioReactive: boolean;
+  displacement: {
+    enabled: boolean;
+    intensity: number;
+    audioMultiplier: number;
+    frequencyResponse: 'amplitude' | 'lowFreq' | 'midFreq' | 'highFreq' | 'beat';
+    beatBoost: number;
+  };
   cameraControls: {
     enableDamping: boolean;
     dampingFactor: number;

@@ -36,6 +36,7 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
   // Collapsible section state
   const [collapsedSections, setCollapsedSections] = useState({
     basic: false,
+    displacement: false, // Show displacement controls by default
     camera: false,
     transform: true, // Start collapsed since it's less commonly used
   });
@@ -149,24 +150,93 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
     };
   }, [enabled]);
 
-  // Create geometry based on settings
+  // Create geometry based on settings with higher subdivision for displacement
   const createGeometry = (shape: ThreeJSShape): THREE.BufferGeometry => {
     switch (shape) {
       case 'cube':
-        return new THREE.BoxGeometry(2, 2, 2);
+        return new THREE.BoxGeometry(2, 2, 2, 64, 64, 64); // Higher subdivision for displacement
       case 'sphere':
-        return new THREE.SphereGeometry(1.5, 32, 32);
+        return new THREE.SphereGeometry(1.5, 64, 64); // Higher subdivision
       case 'plane':
-        return new THREE.PlaneGeometry(3, 2);
+        return new THREE.PlaneGeometry(3, 2, 128, 128); // Higher subdivision
       case 'cylinder':
-        return new THREE.CylinderGeometry(1, 1, 2, 32);
+        return new THREE.CylinderGeometry(1, 1, 2, 64, 32); // Higher subdivision
       case 'torus':
-        return new THREE.TorusGeometry(1, 0.4, 16, 100);
+        return new THREE.TorusGeometry(1, 0.4, 32, 128); // Higher subdivision
       case 'cone':
-        return new THREE.ConeGeometry(1, 2, 32);
+        return new THREE.ConeGeometry(1, 2, 64); // Higher subdivision
       default:
-        return new THREE.BoxGeometry(2, 2, 2);
+        return new THREE.BoxGeometry(2, 2, 2, 64, 64, 64);
     }
+  };
+
+  // Custom displacement shader
+  const createDisplacementMaterial = (videoTexture: THREE.VideoTexture | null): THREE.ShaderMaterial => {
+    const vertexShader = `
+      uniform float uTime;
+      uniform float uDisplacementIntensity;
+      uniform float uAudioReactivity;
+      uniform sampler2D uTexture;
+      
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      
+      void main() {
+        vUv = uv;
+        vNormal = normalize(normalMatrix * normal);
+        
+        // Sample texture for displacement (convert to grayscale)
+        vec4 texColor = texture2D(uTexture, uv);
+        float displacement = dot(texColor.rgb, vec3(0.299, 0.587, 0.114)); // RGB to grayscale
+        
+        // Apply audio reactivity
+        displacement *= uDisplacementIntensity * (1.0 + uAudioReactivity);
+        
+        // Displace vertex along normal
+        vec3 displacedPosition = position + normal * displacement;
+        vPosition = displacedPosition;
+        
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPosition, 1.0);
+      }
+    `;
+
+    const fragmentShader = `
+      uniform sampler2D uTexture;
+      uniform float uTime;
+      uniform bool uWireframe;
+      
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      
+      void main() {
+        if (uWireframe) {
+          gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+        } else {
+          vec4 texColor = texture2D(uTexture, vUv);
+          
+          // Add some lighting based on normals
+          vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
+          float lightIntensity = max(dot(vNormal, lightDir), 0.3);
+          
+          gl_FragColor = vec4(texColor.rgb * lightIntensity, texColor.a);
+        }
+      }
+    `;
+
+    return new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader,
+      uniforms: {
+        uTexture: { value: videoTexture || new THREE.Texture() },
+        uTime: { value: 0 },
+        uDisplacementIntensity: { value: settings.displacement.intensity },
+        uAudioReactivity: { value: 0 },
+        uWireframe: { value: settings.wireframe },
+      },
+      wireframe: settings.wireframe,
+    });
   };
 
   // Update mesh when settings change
@@ -188,8 +258,11 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
     // Create material
     let material: THREE.Material;
     
-    if (currentVideoElement && videoTextureRef.current) {
-      // Use video texture
+    if (settings.displacement.enabled && currentVideoElement && videoTextureRef.current) {
+      // Use displacement shader material
+      material = createDisplacementMaterial(videoTextureRef.current);
+    } else if (currentVideoElement && videoTextureRef.current) {
+      // Use standard video texture
       material = new THREE.MeshLambertMaterial({
         map: videoTextureRef.current,
         wireframe: settings.wireframe
@@ -267,8 +340,47 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
         meshRef.current.rotation.y += settings.autoRotateSpeed * 0.01;
       }
 
-      // Audio reactive features
-      if (settings.audioReactive && audioAnalysis && meshRef.current) {
+      // Update shader uniforms
+      if (meshRef.current && meshRef.current.material instanceof THREE.ShaderMaterial) {
+        const material = meshRef.current.material;
+        material.uniforms.uTime.value = Date.now() * 0.001;
+        material.uniforms.uDisplacementIntensity.value = settings.displacement.intensity;
+        material.uniforms.uWireframe.value = settings.wireframe;
+        
+        // Audio reactive displacement
+        if (settings.audioReactive && audioAnalysis) {
+          let audioValue = 0;
+          switch (settings.displacement.frequencyResponse) {
+            case 'amplitude':
+              audioValue = audioAnalysis.amplitude;
+              break;
+            case 'lowFreq':
+              audioValue = audioAnalysis.lowFreq;
+              break;
+            case 'midFreq':
+              audioValue = audioAnalysis.midFreq;
+              break;
+            case 'highFreq':
+              audioValue = audioAnalysis.highFreq;
+              break;
+            case 'beat':
+              audioValue = audioAnalysis.beat ? 1.0 : 0.0;
+              break;
+          }
+          
+          // Apply beat boost
+          if (audioAnalysis.beat) {
+            audioValue *= settings.displacement.beatBoost;
+          }
+          
+          material.uniforms.uAudioReactivity.value = audioValue * settings.displacement.audioMultiplier;
+        } else {
+          material.uniforms.uAudioReactivity.value = 0;
+        }
+      }
+
+      // Traditional audio reactive features for non-shader materials
+      if (settings.audioReactive && audioAnalysis && meshRef.current && !(meshRef.current.material instanceof THREE.ShaderMaterial)) {
         // Scale based on amplitude
         const scaleMultiplier = 1 + (audioAnalysis.amplitude * 0.5);
         meshRef.current.scale.set(
@@ -410,6 +522,99 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
             />
             Audio Reactive
           </label>
+        </CollapsibleSection>
+
+        <CollapsibleSection title="🌊 3D Displacement" sectionKey="displacement">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.displacement.enabled}
+              onChange={(e) => onSettingsChange({
+                ...settings,
+                displacement: { ...settings.displacement, enabled: e.target.checked }
+              })}
+            />
+            Enable 3D Displacement
+          </label>
+
+          {settings.displacement.enabled && (
+            <>
+              <label>
+                Base Intensity:
+                <input
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  value={settings.displacement.intensity}
+                  onChange={(e) => onSettingsChange({
+                    ...settings,
+                    displacement: { ...settings.displacement, intensity: parseFloat(e.target.value) }
+                  })}
+                />
+                <span>{settings.displacement.intensity.toFixed(1)}</span>
+              </label>
+
+              <label>
+                Audio Multiplier:
+                <input
+                  type="range"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={settings.displacement.audioMultiplier}
+                  onChange={(e) => onSettingsChange({
+                    ...settings,
+                    displacement: { ...settings.displacement, audioMultiplier: parseFloat(e.target.value) }
+                  })}
+                />
+                <span>{settings.displacement.audioMultiplier.toFixed(1)}</span>
+              </label>
+
+              <label>
+                Frequency Response:
+                <select
+                  value={settings.displacement.frequencyResponse}
+                  onChange={(e) => onSettingsChange({
+                    ...settings,
+                    displacement: { ...settings.displacement, frequencyResponse: e.target.value as any }
+                  })}
+                >
+                  <option value="amplitude">Overall Amplitude</option>
+                  <option value="lowFreq">Low Frequencies (Bass)</option>
+                  <option value="midFreq">Mid Frequencies</option>
+                  <option value="highFreq">High Frequencies (Treble)</option>
+                  <option value="beat">Beat Detection</option>
+                </select>
+              </label>
+
+              <label>
+                Beat Boost:
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  step="0.1"
+                  value={settings.displacement.beatBoost}
+                  onChange={(e) => onSettingsChange({
+                    ...settings,
+                    displacement: { ...settings.displacement, beatBoost: parseFloat(e.target.value) }
+                  })}
+                />
+                <span>{settings.displacement.beatBoost.toFixed(1)}x</span>
+              </label>
+
+              <div className="displacement-info">
+                <p>🎨 <strong>How it works:</strong></p>
+                <ul>
+                  <li>Bright pixels in video = outward displacement</li>
+                  <li>Dark pixels = inward displacement</li>
+                  <li>Audio analysis modulates displacement intensity in real-time</li>
+                  <li>Beat detection creates dramatic displacement spikes</li>
+                </ul>
+              </div>
+            </>
+          )}
         </CollapsibleSection>
 
         <CollapsibleSection title="🖱️ Mouse Camera Controls" sectionKey="camera">
@@ -632,6 +837,7 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
         {currentVideoElement ? (
           <p>
             ✅ Video texture active on 3D {settings.shape}
+            {settings.displacement.enabled && " with 3D displacement"}
           </p>
         ) : (
           <p>
@@ -646,11 +852,19 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
           {settings.cameraControls.enablePan && " | Right-click+drag to pan"}
         </p>
         
-        {settings.audioReactive && (
+        {settings.displacement.enabled && (
+          <p>
+            🌊 3D Displacement: {settings.displacement.frequencyResponse} response 
+            {settings.audioReactive && " (audio reactive)"}
+          </p>
+        )}
+        
+        {settings.audioReactive && !settings.displacement.enabled && (
           <p>
             🎵 Audio reactive mode enabled - shape responds to audio analysis
           </p>
         )}
+        
         {currentVideoElement && !currentVideoElement.paused && (
           <p>
             ▶️ Video is playing - texture updating in real-time

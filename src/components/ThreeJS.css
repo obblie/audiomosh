@@ -152,6 +152,31 @@
   color: #87ceeb;
 }
 
+.displacement-info {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(0, 150, 255, 0.1);
+  border: 1px solid rgba(0, 150, 255, 0.3);
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.displacement-info p {
+  margin: 0 0 0.5rem 0;
+  color: #66ccff;
+  font-weight: bold;
+}
+
+.displacement-info ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #99ddff;
+}
+
+.displacement-info li {
+  margin-bottom: 0.25rem;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .control-group {

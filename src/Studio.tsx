@@ -34,6 +34,13 @@ export const Studio = () => {
     autoRotate: true,
     autoRotateSpeed: 1,
     audioReactive: false,
+    displacement: {
+      enabled: true,
+      intensity: 0.3,
+      audioMultiplier: 2.0,
+      frequencyResponse: 'amplitude',
+      beatBoost: 1.5,
+    },
     cameraControls: {
       enableDamping: true,
       dampingFactor: 0.05,
