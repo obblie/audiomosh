@@ -34,6 +34,15 @@ export const Studio = () => {
     autoRotate: true,
     autoRotateSpeed: 1,
     audioReactive: false,
+    cameraControls: {
+      enableDamping: true,
+      dampingFactor: 0.05,
+      enableZoom: true,
+      enablePan: true,
+      enableRotate: true,
+      minDistance: 2,
+      maxDistance: 20,
+    },
   });
 
   // Handler to capture the rendered video element and pass it to Three.js

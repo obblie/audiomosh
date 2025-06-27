@@ -87,4 +87,13 @@ export interface ThreeJSSettings {
   autoRotate: boolean;
   autoRotateSpeed: number;
   audioReactive: boolean;
+  cameraControls: {
+    enableDamping: boolean;
+    dampingFactor: number;
+    enableZoom: boolean;
+    enablePan: boolean;
+    enableRotate: boolean;
+    minDistance: number;
+    maxDistance: number;
+  };
 }

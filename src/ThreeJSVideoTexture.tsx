@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
+import { OrbitControls } from 'three-stdlib';
 import { Vid, Segment, AudioAnalysis, ThreeJSSettings, ThreeJSShape } from './types';
 import { Section } from './components/Section';
 import './components/ThreeJS.css';
@@ -30,6 +31,7 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
   const meshRef = useRef<THREE.Mesh | null>(null);
   const videoTextureRef = useRef<THREE.VideoTexture | null>(null);
   const animationIdRef = useRef<number | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
 
   // Initialize Three.js scene
   useEffect(() => {
@@ -65,6 +67,19 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
     directionalLight.position.set(1, 1, 1);
     scene.add(directionalLight);
 
+    // Setup orbit controls for mouse interaction
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = settings.cameraControls.enableDamping;
+    controls.dampingFactor = settings.cameraControls.dampingFactor;
+    controls.enableZoom = settings.cameraControls.enableZoom;
+    controls.enablePan = settings.cameraControls.enablePan;
+    controls.enableRotate = settings.cameraControls.enableRotate;
+    controls.screenSpacePanning = false;
+    controls.minDistance = settings.cameraControls.minDistance;
+    controls.maxDistance = settings.cameraControls.maxDistance;
+    controls.maxPolarAngle = Math.PI / 2; // Prevent going below ground
+    controlsRef.current = controls;
+
     // Handle resize
     const handleResize = () => {
       if (!mountRef.current || !camera || !renderer) return;
@@ -83,6 +98,9 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
       window.removeEventListener('resize', handleResize);
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
+      }
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
       }
       if (mountRef.current && renderer.domElement) {
         mountRef.current.removeChild(renderer.domElement);
@@ -156,6 +174,20 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
     meshRef.current = mesh;
   }, [settings, currentVideoElement, enabled]);
 
+  // Update camera controls when settings change
+  useEffect(() => {
+    if (!controlsRef.current || !enabled) return;
+    
+    const controls = controlsRef.current;
+    controls.enableDamping = settings.cameraControls.enableDamping;
+    controls.dampingFactor = settings.cameraControls.dampingFactor;
+    controls.enableZoom = settings.cameraControls.enableZoom;
+    controls.enablePan = settings.cameraControls.enablePan;
+    controls.enableRotate = settings.cameraControls.enableRotate;
+    controls.minDistance = settings.cameraControls.minDistance;
+    controls.maxDistance = settings.cameraControls.maxDistance;
+  }, [settings.cameraControls, enabled]);
+
   // Setup video texture
   useEffect(() => {
     if (!currentVideoElement || !enabled) return;
@@ -183,6 +215,11 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
 
     const animate = () => {
       if (!sceneRef.current || !cameraRef.current || !rendererRef.current) return;
+
+      // Update orbit controls
+      if (controlsRef.current) {
+        controlsRef.current.update();
+      }
 
       // Auto rotation
       if (settings.autoRotate && meshRef.current) {
@@ -336,6 +373,110 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
         </div>
 
         <div className="control-group">
+          <h4>🖱️ Mouse Camera Controls</h4>
+          
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.cameraControls.enableRotate}
+              onChange={(e) => onSettingsChange({
+                ...settings,
+                cameraControls: { ...settings.cameraControls, enableRotate: e.target.checked }
+              })}
+            />
+            Enable Rotation (Left Click + Drag)
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.cameraControls.enableZoom}
+              onChange={(e) => onSettingsChange({
+                ...settings,
+                cameraControls: { ...settings.cameraControls, enableZoom: e.target.checked }
+              })}
+            />
+            Enable Zoom (Mouse Wheel)
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.cameraControls.enablePan}
+              onChange={(e) => onSettingsChange({
+                ...settings,
+                cameraControls: { ...settings.cameraControls, enablePan: e.target.checked }
+              })}
+            />
+            Enable Pan (Right Click + Drag)
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.cameraControls.enableDamping}
+              onChange={(e) => onSettingsChange({
+                ...settings,
+                cameraControls: { ...settings.cameraControls, enableDamping: e.target.checked }
+              })}
+            />
+            Smooth Camera Movement
+          </label>
+
+          {settings.cameraControls.enableDamping && (
+            <label>
+              Smoothness:
+              <input
+                type="range"
+                min="0.01"
+                max="0.2"
+                step="0.01"
+                value={settings.cameraControls.dampingFactor}
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  cameraControls: { ...settings.cameraControls, dampingFactor: parseFloat(e.target.value) }
+                })}
+              />
+              <span>{settings.cameraControls.dampingFactor.toFixed(2)}</span>
+            </label>
+          )}
+
+          <div className="transform-controls">
+            <div>
+              <label>Min Zoom:</label>
+              <input
+                type="range"
+                min="0.5"
+                max="10"
+                step="0.5"
+                value={settings.cameraControls.minDistance}
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  cameraControls: { ...settings.cameraControls, minDistance: parseFloat(e.target.value) }
+                })}
+              />
+              <span>{settings.cameraControls.minDistance.toFixed(1)}</span>
+            </div>
+
+            <div>
+              <label>Max Zoom:</label>
+              <input
+                type="range"
+                min="5"
+                max="50"
+                step="1"
+                value={settings.cameraControls.maxDistance}
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  cameraControls: { ...settings.cameraControls, maxDistance: parseFloat(e.target.value) }
+                })}
+              />
+              <span>{settings.cameraControls.maxDistance.toFixed(1)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="control-group">
           <h4>Transform</h4>
           
           <div className="transform-controls">
@@ -459,6 +600,14 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
             ⏳ Waiting for rendered video - render a video to see it as a 3D texture
           </p>
         )}
+        
+        <p>
+          🖱️ <strong>Mouse Controls:</strong> 
+          {settings.cameraControls.enableRotate && " Left-click+drag to orbit"} 
+          {settings.cameraControls.enableZoom && " | Mouse wheel to zoom"}
+          {settings.cameraControls.enablePan && " | Right-click+drag to pan"}
+        </p>
+        
         {settings.audioReactive && (
           <p>
             🎵 Audio reactive mode enabled - shape responds to audio analysis
