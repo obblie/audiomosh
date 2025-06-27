@@ -30,6 +30,18 @@ export const App = () => {
             <span className="no-mobile">Report a bug</span>
           </a>
         )}
+        <div style={{ marginLeft: 'auto', padding: '4px 8px', fontSize: '20px', color: 'white', display: 'flex', alignItems: 'center' }}>
+          This is a fork of{" "}
+          <a 
+            href="https://github.com/supermosh/supermosh.github.io" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ color: 'white', textDecoration: 'underline', margin: '0 4px' }}
+          >
+            Supermosh
+          </a>
+          {" "}by @ninofiliu
+        </div>
       </nav>
       <Routes>
         <Route path="/" element={<Home />} />

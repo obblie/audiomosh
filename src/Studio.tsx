@@ -3,6 +3,7 @@ import { toBlobURL } from "@ffmpeg/util";
 import { useEffect, useRef, useState } from "react";
 
 import { FilesEditor } from "./FilesEditor";
+import { RealTimeMode } from "./RealTimeMode";
 import { Rendering } from "./Rendering";
 import { Timeline } from "./Timeline";
 import { Segment, Vid } from "./types";
@@ -19,6 +20,8 @@ export const Studio = () => {
     height: 480,
   });
   const [preprocessSettings, setPreprocessSettings] = useState(settings);
+  const [renderedVideoSrc, setRenderedVideoSrc] = useState<string>("");
+  const [availableSamples, setAvailableSamples] = useState<{ name: string; url: string; file?: File }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -55,15 +58,19 @@ export const Studio = () => {
         preprocessSettings={preprocessSettings}
         setPreprocessSettings={setPreprocessSettings}
       />
-      <Timeline vids={vids} segments={segments} setSegments={setSegments} />
-      <Rendering
-        vids={vids}
-        segments={segments}
-        config={config}
-        settings={settings}
-        setSettings={setSettings}
-        preprocessSettings={preprocessSettings}
-      />
+      <Timeline vids={vids} segments={segments} setSegments={setSegments} availableSamples={availableSamples} />
+      <RealTimeMode vids={vids} segments={segments} settings={settings} renderedVideoSrc={renderedVideoSrc} />
+              <Rendering
+          vids={vids}
+          segments={segments}
+          config={config}
+          settings={settings}
+          setSettings={setSettings}
+          preprocessSettings={preprocessSettings}
+          onRenderedVideo={setRenderedVideoSrc}
+          ffmpeg={ffmpegRef.current}
+          onSamplesChange={setAvailableSamples}
+        />
     </main>
   );
 };
