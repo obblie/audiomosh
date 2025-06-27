@@ -37,6 +37,7 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
   const [collapsedSections, setCollapsedSections] = useState({
     basic: false,
     displacement: false, // Show displacement controls by default
+    quality: true, // Start collapsed
     camera: false,
     transform: true, // Start collapsed since it's less commonly used
   });
@@ -150,23 +151,35 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
     };
   }, [enabled]);
 
-  // Create geometry based on settings with higher subdivision for displacement
+  // Create geometry based on quality settings for optimized performance
   const createGeometry = (shape: ThreeJSShape): THREE.BufferGeometry => {
+    const qualityMultipliers = {
+      low: { base: 16, multiplier: 1 },
+      medium: { base: 32, multiplier: 1.5 },
+      high: { base: 64, multiplier: 2 },
+      ultra: { base: 128, multiplier: 3 }
+    };
+    
+    const quality = qualityMultipliers[settings.quality.subdivisionLevel];
+    const baseRes = quality.base;
+    const highRes = Math.floor(baseRes * quality.multiplier);
+    const ultraRes = Math.floor(baseRes * quality.multiplier * 2);
+    
     switch (shape) {
       case 'cube':
-        return new THREE.BoxGeometry(2, 2, 2, 64, 64, 64); // Higher subdivision for displacement
+        return new THREE.BoxGeometry(2, 2, 2, baseRes, baseRes, baseRes);
       case 'sphere':
-        return new THREE.SphereGeometry(1.5, 64, 64); // Higher subdivision
+        return new THREE.SphereGeometry(1.5, highRes, highRes);
       case 'plane':
-        return new THREE.PlaneGeometry(3, 2, 128, 128); // Higher subdivision
+        return new THREE.PlaneGeometry(3, 2, ultraRes, ultraRes); // Highest res for planes (great for terrain)
       case 'cylinder':
-        return new THREE.CylinderGeometry(1, 1, 2, 64, 32); // Higher subdivision
+        return new THREE.CylinderGeometry(1, 1, 2, highRes, baseRes);
       case 'torus':
-        return new THREE.TorusGeometry(1, 0.4, 32, 128); // Higher subdivision
+        return new THREE.TorusGeometry(1, 0.4, baseRes, highRes);
       case 'cone':
-        return new THREE.ConeGeometry(1, 2, 64); // Higher subdivision
+        return new THREE.ConeGeometry(1, 2, highRes, baseRes);
       default:
-        return new THREE.BoxGeometry(2, 2, 2, 64, 64, 64);
+        return new THREE.BoxGeometry(2, 2, 2, baseRes, baseRes, baseRes);
     }
   };
 
@@ -617,6 +630,35 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
           )}
         </CollapsibleSection>
 
+        <CollapsibleSection title="⚡ Performance & Quality" sectionKey="quality">
+          <label>
+            Polygon Detail:
+            <select
+              value={settings.quality.subdivisionLevel}
+              onChange={(e) => onSettingsChange({
+                ...settings,
+                quality: { ...settings.quality, subdivisionLevel: e.target.value as any }
+              })}
+            >
+              <option value="low">Low (16-48 subdivisions) - Best Performance</option>
+              <option value="medium">Medium (32-96 subdivisions) - Balanced</option>
+              <option value="high">High (64-192 subdivisions) - High Quality</option>
+              <option value="ultra">Ultra (128-768 subdivisions) - Maximum Detail</option>
+            </select>
+          </label>
+
+          <div className="quality-info">
+            <p>🎯 <strong>Quality Guide:</strong></p>
+            <ul>
+              <li><strong>Low:</strong> Smooth performance, basic displacement</li>
+              <li><strong>Medium:</strong> Good balance of quality and performance</li>
+              <li><strong>High:</strong> Detailed displacement, may impact performance</li>
+              <li><strong>Ultra:</strong> Maximum detail, requires powerful GPU</li>
+            </ul>
+            <p>💡 Higher quality = more polygons = more detailed displacement</p>
+          </div>
+        </CollapsibleSection>
+
         <CollapsibleSection title="🖱️ Mouse Camera Controls" sectionKey="camera">
           
           <label>
@@ -844,6 +886,19 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
             ⏳ Waiting for rendered video - render a video to see it as a 3D texture
           </p>
         )}
+        
+        <p>
+          ⚡ Quality: <strong>{settings.quality.subdivisionLevel}</strong> 
+          ({(() => {
+            const quality = {
+              low: "16-48",
+              medium: "32-96", 
+              high: "64-192",
+              ultra: "128-768"
+            };
+            return quality[settings.quality.subdivisionLevel];
+          })()} subdivisions)
+        </p>
         
         <p>
           🖱️ <strong>Mouse Controls:</strong> 

@@ -94,6 +94,9 @@ export interface ThreeJSSettings {
     frequencyResponse: 'amplitude' | 'lowFreq' | 'midFreq' | 'highFreq' | 'beat';
     beatBoost: number;
   };
+  quality: {
+    subdivisionLevel: 'low' | 'medium' | 'high' | 'ultra';
+  };
   cameraControls: {
     enableDamping: boolean;
     dampingFactor: number;

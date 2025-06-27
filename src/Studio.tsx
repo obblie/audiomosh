@@ -41,6 +41,9 @@ export const Studio = () => {
       frequencyResponse: 'amplitude',
       beatBoost: 1.5,
     },
+    quality: {
+      subdivisionLevel: 'high', // Start with high quality
+    },
     cameraControls: {
       enableDamping: true,
       dampingFactor: 0.05,
