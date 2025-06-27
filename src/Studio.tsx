@@ -6,7 +6,8 @@ import { FilesEditor } from "./FilesEditor";
 import { RealTimeMode } from "./RealTimeMode";
 import { Rendering } from "./Rendering";
 import { Timeline } from "./Timeline";
-import { Segment, Vid } from "./types";
+import { ThreeJSVideoTexture } from "./ThreeJSVideoTexture";
+import { Segment, Vid, ThreeJSSettings } from "./types";
 
 export const Studio = () => {
   const [loadingFfmpeg, setLoadingFfmpeg] = useState(true);
@@ -22,6 +23,18 @@ export const Studio = () => {
   const [preprocessSettings, setPreprocessSettings] = useState(settings);
   const [renderedVideoSrc, setRenderedVideoSrc] = useState<string>("");
   const [availableSamples, setAvailableSamples] = useState<{ name: string; url: string; file?: File }[]>([]);
+  const [currentVideoElement, setCurrentVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [threeJSSettings, setThreeJSSettings] = useState<ThreeJSSettings>({
+    enabled: false,
+    shape: 'cube',
+    wireframe: false,
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: { x: 1, y: 1, z: 1 },
+    position: { x: 0, y: 0, z: 0 },
+    autoRotate: true,
+    autoRotateSpeed: 1,
+    audioReactive: false,
+  });
 
   useEffect(() => {
     (async () => {
@@ -59,18 +72,31 @@ export const Studio = () => {
         setPreprocessSettings={setPreprocessSettings}
       />
       <Timeline vids={vids} segments={segments} setSegments={setSegments} availableSamples={availableSamples} />
-      <RealTimeMode vids={vids} segments={segments} settings={settings} renderedVideoSrc={renderedVideoSrc} />
-              <Rendering
-          vids={vids}
-          segments={segments}
-          config={config}
-          settings={settings}
-          setSettings={setSettings}
-          preprocessSettings={preprocessSettings}
-          onRenderedVideo={setRenderedVideoSrc}
-          ffmpeg={ffmpegRef.current}
-          onSamplesChange={setAvailableSamples}
-        />
+      <ThreeJSVideoTexture
+        vids={vids}
+        currentVideoElement={currentVideoElement || undefined}
+        segments={segments}
+        enabled={threeJSSettings.enabled}
+        settings={threeJSSettings}
+        onSettingsChange={setThreeJSSettings}
+      />
+      <RealTimeMode 
+        vids={vids} 
+        segments={segments} 
+        settings={settings} 
+        renderedVideoSrc={renderedVideoSrc}
+      />
+      <Rendering
+        vids={vids}
+        segments={segments}
+        config={config}
+        settings={settings}
+        setSettings={setSettings}
+        preprocessSettings={preprocessSettings}
+        onRenderedVideo={setRenderedVideoSrc}
+        ffmpeg={ffmpegRef.current}
+        onSamplesChange={setAvailableSamples}
+      />
     </main>
   );
 };

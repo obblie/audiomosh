@@ -1,0 +1,129 @@
+.threejs-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.control-group {
+  padding: 1rem;
+  border: 1px solid #333;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.control-group h4 {
+  margin: 0 0 0.5rem 0;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.control-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.control-group select,
+.control-group input[type="range"] {
+  background: #222;
+  border: 1px solid #444;
+  color: #fff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.control-group input[type="checkbox"] {
+  accent-color: #007acc;
+}
+
+.transform-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+
+.transform-controls > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.transform-controls label {
+  min-width: 80px;
+  margin-bottom: 0;
+  font-size: 0.8rem;
+}
+
+.transform-controls input[type="range"] {
+  flex: 1;
+  min-width: 60px;
+}
+
+.transform-controls span {
+  min-width: 30px;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.threejs-viewport {
+  background: #000;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.threejs-viewport canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.threejs-info {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(0, 100, 200, 0.1);
+  border: 1px solid rgba(0, 100, 200, 0.3);
+  border-radius: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.threejs-info p {
+  margin: 0.25rem 0;
+  color: #87ceeb;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .control-group {
+    padding: 0.75rem;
+  }
+  
+  .transform-controls {
+    grid-template-columns: 1fr;
+  }
+  
+  .threejs-viewport {
+    height: 300px !important;
+  }
+}
+
+/* Dark theme integration */
+.dark .threejs-controls {
+  color: #e5e5e5;
+}
+
+.dark .control-group {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #555;
+}
+
+.dark .control-group select,
+.dark .control-group input[type="range"] {
+  background: #333;
+  border-color: #555;
+  color: #e5e5e5;
+} 

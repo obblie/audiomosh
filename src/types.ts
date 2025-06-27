@@ -62,3 +62,29 @@ export interface AudioSegment {
   sampleUrl?: string;
   noiseType?: 'white' | 'pink' | 'brown';
 }
+
+export type ThreeJSShape = 'cube' | 'sphere' | 'plane' | 'cylinder' | 'torus' | 'cone';
+
+export interface ThreeJSSettings {
+  enabled: boolean;
+  shape: ThreeJSShape;
+  wireframe: boolean;
+  rotation: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  scale: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  autoRotate: boolean;
+  autoRotateSpeed: number;
+  audioReactive: boolean;
+}
