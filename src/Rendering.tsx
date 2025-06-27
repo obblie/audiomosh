@@ -17,6 +17,7 @@ export const Rendering = ({
   onRenderedVideo,
   ffmpeg,
   onSamplesChange,
+  onVideoElementReady,
 }: {
   segments: Segment[];
   vids: Vid[];
@@ -27,6 +28,7 @@ export const Rendering = ({
   onRenderedVideo?: (src: string) => void;
   ffmpeg?: FFmpeg;
   onSamplesChange?: (samples: { name: string; url: string; file?: File }[]) => void;
+  onVideoElementReady?: (videoElement: HTMLVideoElement | null) => void;
 }) => {
   const [rendering, setRendering] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -113,6 +115,13 @@ export const Rendering = ({
     }
   }, [isVideoPlaying, segments]);
   
+  // Notify parent when video element is ready/changes
+  useEffect(() => {
+    if (onVideoElementReady) {
+      onVideoElementReady(src ? videoRef.current : null);
+    }
+  }, [src, onVideoElementReady]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {

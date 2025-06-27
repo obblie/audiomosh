@@ -227,9 +227,23 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
   if (!enabled) {
     return (
       <Section name="3D Video Texture">
-        <p>Enable 3D mode to see video textures applied to 3D objects</p>
-        <button onClick={() => onSettingsChange({ ...settings, enabled: true })}>
-          Enable 3D Mode
+        <div className="threejs-info">
+          <p>🎮 Enable 3D mode to see your rendered videos as textures on 3D objects!</p>
+          <p>💡 Workflow: Upload videos → Create segments → Render video → Enable 3D mode → See magic!</p>
+        </div>
+        <button 
+          onClick={() => onSettingsChange({ ...settings, enabled: true })}
+          style={{ 
+            padding: '0.75rem 1.5rem', 
+            background: '#007acc', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '0.5rem',
+            fontSize: '1rem',
+            cursor: 'pointer'
+          }}
+        >
+          🚀 Enable 3D Mode
         </button>
       </Section>
     );
@@ -436,12 +450,23 @@ export const ThreeJSVideoTexture: React.FC<ThreeJSVideoTextureProps> = ({
       />
 
       <div className="threejs-info">
-        <p>
-          🎥 Video texture will be applied to the 3D {settings.shape}
-        </p>
+        {currentVideoElement ? (
+          <p>
+            ✅ Video texture active on 3D {settings.shape}
+          </p>
+        ) : (
+          <p>
+            ⏳ Waiting for rendered video - render a video to see it as a 3D texture
+          </p>
+        )}
         {settings.audioReactive && (
           <p>
             🎵 Audio reactive mode enabled - shape responds to audio analysis
+          </p>
+        )}
+        {currentVideoElement && !currentVideoElement.paused && (
+          <p>
+            ▶️ Video is playing - texture updating in real-time
           </p>
         )}
       </div>

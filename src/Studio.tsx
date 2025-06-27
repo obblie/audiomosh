@@ -36,6 +36,11 @@ export const Studio = () => {
     audioReactive: false,
   });
 
+  // Handler to capture the rendered video element and pass it to Three.js
+  const handleRenderedVideoReady = (videoElement: HTMLVideoElement | null) => {
+    setCurrentVideoElement(videoElement);
+  };
+
   useEffect(() => {
     (async () => {
       ffmpegRef.current.on("progress", (evt) => setProgress(evt.progress));
@@ -96,6 +101,7 @@ export const Studio = () => {
         onRenderedVideo={setRenderedVideoSrc}
         ffmpeg={ffmpegRef.current}
         onSamplesChange={setAvailableSamples}
+        onVideoElementReady={handleRenderedVideoReady}
       />
     </main>
   );
