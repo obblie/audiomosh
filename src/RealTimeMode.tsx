@@ -66,7 +66,7 @@ export const RealTimeMode = ({
   const debugAnimationRef = useRef<number | null>(null);
   
   // Timeline playback state
-  const [timelinePosition, setTimelinePosition] = useState<number>(0);
+  // const [timelinePosition, setTimelinePosition] = useState<number>(0);
   const timelineStartTime = useRef<number>(0);
   const currentSegmentIndex = useRef<number>(0);
   const segmentFrameIndex = useRef<number>(0);

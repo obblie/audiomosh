@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 BL_Proxy
+
+#api keys
+*.env

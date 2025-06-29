@@ -31,7 +31,7 @@ const shuffleSegments = (array: Segment[]): Segment[] => {
 };
 
 // Weighted repeat count generator - heavily favors 1, with larger numbers becoming increasingly rare
-const generateWeightedRepeat = (baseRepeat: number = 1, maxRepeat: number = 50): number => {
+const generateWeightedRepeat = (baseRepeat: number = 1): number => {
   // Special handling for micro-stutter style which should have higher base repeats
   const isMicroStutter = baseRepeat > 10;
   
@@ -101,7 +101,7 @@ const applyPresetWithProbabilities = (preset: SegmentPreset, vids: Vid[]): Segme
     const isShortVideo = videoDuration < 3;
     const isLongVideo = videoDuration > 10;
     
-    preset.segments.forEach((presetSegment, segIndex) => {
+    preset.segments.forEach((presetSegment) => {
       // Probabilistic decisions based on style and video characteristics
       const shouldInclude = Math.random() < (0.6 + vidIndex * 0.15); // Higher probability for later videos
       
@@ -135,7 +135,7 @@ const applyPresetWithProbabilities = (preset: SegmentPreset, vids: Vid[]): Segme
         if (vidIndex > 0) {
           // Later videos get slight variation but still respect weighted distribution
           if (Math.random() < 0.3) { // Only 30% chance to modify
-            adaptedRepeat = generateWeightedRepeat(adaptedRepeat, 15); // Slightly higher cap for later videos
+            adaptedRepeat = generateWeightedRepeat(adaptedRepeat); // Slightly higher cap for later videos
           }
           
           // Chance for frame offset shifts
@@ -183,34 +183,38 @@ const applyPresetWithProbabilities = (preset: SegmentPreset, vids: Vid[]): Segme
           });
         }
         
-        if (style === 'stutter' && Math.random() < 0.4) {
-          // Add micro-stutter segments
-          const microLength = Math.max(2, Math.floor((adaptedTo - adaptedFrom) * 0.2));
-          const microFrom = adaptedFrom + Math.floor(Math.random() * (adaptedTo - adaptedFrom - microLength));
-          const microTo = microFrom + microLength;
+        if (style === 'stutter' && Math.random() < 0.6) {
+          // Add stutter segments with high repeat counts
+          const stutterCount = Math.floor(2 + Math.random() * 3); // 2-4 stutter segments
           
-          segments.push({
-            name: vid.name,
-            from: microFrom,
-            to: microTo,
-            repeat: generateWeightedRepeat(5, 12) // Weighted repeat for stutter, slightly higher range
-          });
-        }
-        
-        if (style === 'superchop' && Math.random() < 0.4) {
-          // Add 1-2 additional micro segments only for superchop effect
-          const numMicros = Math.floor(1 + Math.random() * 2); // 1-2 additional micro segments
-          
-          for (let m = 0; m < numMicros; m++) {
-            const microLength = Math.max(1, Math.floor(1 + Math.random() * 2)); // 1-2 frame micro cuts
-            const microStart = adaptedFrom + Math.floor(Math.random() * (adaptedTo - adaptedFrom - microLength));
-            const microEnd = microStart + microLength;
+          for (let s = 0; s < stutterCount; s++) {
+            const stutterLength = Math.floor(2 + Math.random() * 4); // 2-5 frame stutters
+            const stutterStart = Math.floor(Math.random() * (maxFrames - stutterLength - 10));
+            const stutterEnd = stutterStart + stutterLength;
             
             segments.push({
               name: vid.name,
-              from: microStart,
-              to: microEnd,
-              repeat: generateWeightedRepeat(2, 8) // Weighted repeat for superchop micro segments
+              from: stutterStart,
+              to: stutterEnd,
+              repeat: generateWeightedRepeat(5) // Weighted repeat for stutter, slightly higher range
+            });
+          }
+        }
+        
+        if (style === 'superchop' && Math.random() < 0.7) {
+          // Add superchop micro segments
+          const chopCount = Math.floor(3 + Math.random() * 4); // 3-6 chop segments
+          
+          for (let c = 0; c < chopCount; c++) {
+            const chopLength = Math.floor(1 + Math.random() * 3); // 1-3 frame chops
+            const chopStart = Math.floor(Math.random() * (maxFrames - chopLength - 10));
+            const chopEnd = chopStart + chopLength;
+            
+            segments.push({
+              name: vid.name,
+              from: chopStart,
+              to: chopEnd,
+              repeat: generateWeightedRepeat(2) // Weighted repeat for superchop micro segments
             });
           }
         }
@@ -243,7 +247,7 @@ const applyPresetWithProbabilities = (preset: SegmentPreset, vids: Vid[]): Segme
               const microEnd = microStart + microLength;
               
               // Use weighted repeat for micro-stutter (will handle 20-50 range internally)
-              const microRepeat = generateWeightedRepeat(25, 50); // Base of 25 triggers micro-stutter logic
+              const microRepeat = generateWeightedRepeat(25); // Base of 25 triggers micro-stutter logic
               
               segments.push({
                 name: vid.name,
@@ -374,7 +378,7 @@ export const Timeline = ({
         { from: 103, to: 120, repeat: 1 },
         { from: 120, to: 126, repeat: 7 }
       ]
-    },
+    }, 
     {
       name: "7segmentOddTimings",
       segments: [

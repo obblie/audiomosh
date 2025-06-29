@@ -3,6 +3,7 @@ import { Link, Route, Routes, useMatch } from "react-router-dom";
 import { Icon } from "./components/Icon";
 import { Home } from "./Home";
 import { Studio } from "./Studio";
+import { ForeverMosh } from "./ForeverMosh";
 
 export const App = () => {
   const match = useMatch("/studio");
@@ -14,6 +15,9 @@ export const App = () => {
         </Link>
         <Link to="/studio" className="link-button">
           <Icon name="movie" /> <span className="no-mobile">Studio</span>
+        </Link>
+        <Link to="/forever-mosh" className="link-button">
+          <Icon name="repeat" /> <span className="no-mobile">Forever Mosh</span>
         </Link>
         <a
           href="https://github.com/supermosh/supermosh.github.io"
@@ -46,6 +50,7 @@ export const App = () => {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/studio" element={<Studio />} />
+        <Route path="/forever-mosh" element={<ForeverMosh />} />
       </Routes>
     </>
   );

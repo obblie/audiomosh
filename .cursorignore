@@ -1,0 +1,43 @@
+# Environment files containing sensitive information
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# API keys and secrets
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Local configuration files
+config.local.js
+config.local.json
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/settings.json
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/ 
