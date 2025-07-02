@@ -3,23 +3,26 @@ import { Segment } from "./types";
 import { computeChunks, record, recordWithAudio } from "./lib";
 
 /**
- * ForeverMosh - Continuous Video Stream with Pexels Integration
+ * ForeverMosh - Continuous Video Stream with Proxy API Integration
  * 
  * This component creates an endless video stream by:
- * 1. Fetching random videos from Pexels API using varied search keywords
- * 2. Processing them with supermosh algorithm (TODO: implement)
- * 3. Displaying them in a continuous full-screen stream
+ * 1. Fetching random videos from Pexels API via proxy service
+ * 2. Fetching audio from Freesound API via proxy service
+ * 3. Processing them with supermosh algorithm
+ * 4. Displaying them in a continuous full-screen stream
  * 
  * Required Environment Variables:
- * - VITE_PEXELS_API_KEY: Your Pexels API key from https://www.pexels.com/api/
+ * - VITE_PEXELS_PROXY_BASE: Proxy service URL for Pexels API (e.g., http://localhost:3001/api/pexels)
+ * - VITE_FREESOUND_PROXY_BASE: Proxy service URL for Freesound API (e.g., http://localhost:3001/api/freesound)
  * 
  * Features:
  * - Automatic video fetching from Pexels with randomized keywords
+ * - Automatic audio fetching from Freesound with Creative Commons filtering
  * - Smart quality selection (prefers HD/SD)
  * - Error handling with fallback videos
  * - Real-time stats overlay
  * - Mobile responsive design
- * - CORS-compatible (Pexels supports CORS)
+ * - Proxy-based API calls for security
  */
 
 interface PexelsVideo {
@@ -258,6 +261,7 @@ export const ForeverMosh = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
   const [isPreloading, setIsPreloading] = useState(true);
+  const [showDebug, setShowDebug] = useState(true); // Debug text toggle
   const MIN_PRELOAD_VIDEOS = 4; // Minimum videos to preload before starting
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -272,11 +276,19 @@ export const ForeverMosh = () => {
     startTime: Date.now()
   });
 
-  // API configuration
-  const PEXELS_API_KEY = import.meta.env.VITE_PEXELS_API_KEY || '';
-  const FREESOUND_API_KEY = import.meta.env.VITE_FREESOUND_API_KEY || '';
-  const PEXELS_API_BASE = 'https://api.pexels.com';
-  const FREESOUND_API_BASE = 'https://freesound.org/apiv2';
+  // API configuration (using backend proxy endpoints)
+  const PEXELS_PROXY_BASE = import.meta.env.VITE_PEXELS_PROXY_BASE || 'http://localhost:3001/api/pexels';
+  const FREESOUND_PROXY_BASE = import.meta.env.VITE_FREESOUND_PROXY_BASE || 'http://localhost:3001/api/freesound';
+
+  // Debug logging for proxy URLs
+  console.log('🔧 Proxy URLs:', {
+    PEXELS_PROXY_BASE,
+    FREESOUND_PROXY_BASE,
+    envVars: {
+      VITE_PEXELS_PROXY_BASE: import.meta.env.VITE_PEXELS_PROXY_BASE,
+      VITE_FREESOUND_PROXY_BASE: import.meta.env.VITE_FREESOUND_PROXY_BASE
+    }
+  });
   
   // Search keywords for video variety
   const searchKeywords = [
@@ -289,6 +301,29 @@ export const ForeverMosh = () => {
     'ambient', 'synth', 'drum', 'bass', 'melody', 'electronic', 'experimental',
     'texture', 'atmosphere', 'rhythm', 'harmony', 'soundscape', 'loop', 'beat', 'tone'
   ];
+
+  // Keyboard listener for debug toggle
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 't' || event.key === 'T') {
+        setShowDebug(prev => !prev);
+        console.log('🔧 Debug text toggled:', !showDebug);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [showDebug]);
+
+  // Force queue function to manually trigger playback
+  const forceQueue = useCallback(() => {
+    console.log('🚀 Force queue triggered with', videoQueue.length, 'videos ready');
+    if (videoQueue.length > 0) {
+      playNextVideo();
+    } else {
+      console.log('⚠️ No videos in queue to force play');
+    }
+  }, [videoQueue]);
 
   // Process multiple videos together into a 30-second moshed clip
   const processMoshPair = async (
@@ -933,8 +968,8 @@ export const ForeverMosh = () => {
     try {
       console.log('📹 Fetching raw video from Pexels...');
       
-      if (!PEXELS_API_KEY) {
-        console.warn('Pexels API key not configured. Using fallback video.');
+      if (!PEXELS_PROXY_BASE) {
+        console.warn('Pexels proxy base not configured. Using fallback video.');
         const fallbackVideo: ProcessedVideo = {
           id: `fallback-${Date.now()}`,
           originalId: 'demo',
@@ -950,16 +985,17 @@ export const ForeverMosh = () => {
 
       const randomKeyword = searchKeywords[Math.floor(Math.random() * searchKeywords.length)];
       const response = await fetch(
-        `${PEXELS_API_BASE}/videos/search?query=${randomKeyword}&orientation=landscape&size=large&per_page=15&page=${Math.floor(Math.random() * 10) + 1}`,
-        {
-          headers: {
-            'Authorization': PEXELS_API_KEY
-          }
-        }
+        `${PEXELS_PROXY_BASE}?url=search?query=${randomKeyword}&orientation=landscape&size=large&per_page=15&page=${Math.floor(Math.random() * 10) + 1}`
       );
 
       if (!response.ok) {
-        throw new Error(`Pexels API error: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ Pexels proxy error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`Pexels API error: ${response.status} - ${errorText}`);
       }
 
       const pexelsData: PexelsResponse = await response.json();
@@ -1004,33 +1040,68 @@ export const ForeverMosh = () => {
     try {
       console.log('🎵 Fetching raw audio from Freesound...');
       
-      if (!FREESOUND_API_KEY) {
-        console.warn('Freesound API key not configured. Skipping audio fetch.');
+      if (!FREESOUND_PROXY_BASE) {
+        console.warn('Freesound proxy base not configured. Skipping audio fetch.');
         return;
       }
 
       const randomKeyword = audioKeywords[Math.floor(Math.random() * audioKeywords.length)];
       const response = await fetch(
-        `${FREESOUND_API_BASE}/search/text/?query=${randomKeyword}&filter=duration:[10 TO 60] channels:2 license:"Creative Commons 0" OR license:"Attribution" OR license:"Attribution Noncommercial"&sort=downloads_desc&page_size=15&fields=id,name,description,username,duration,filesize,samplerate,channels,bitrate,tags,license,previews`,
-        {
-          headers: {
-            'Authorization': `Token ${FREESOUND_API_KEY}`
-          }
-        }
+        `${FREESOUND_PROXY_BASE}?url=search/text/?query=${randomKeyword}&filter=duration:[10 TO 60] channels:2 license:"Creative Commons 0" OR license:"Attribution" OR license:"Attribution Noncommercial"&sort=downloads_desc&page_size=15&fields=id,name,description,username,duration,filesize,samplerate,channels,bitrate,tags,license,previews`
       );
 
       if (!response.ok) {
-        throw new Error(`Freesound API error: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ Freesound proxy error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`Freesound API error: ${response.status} - ${errorText}`);
       }
 
       const freesoundData: FreesoundResponse = await response.json();
+      
+      // Debug the response structure
+      console.log('🎵 Freesound API response:', {
+        count: freesoundData.count,
+        resultsCount: freesoundData.results?.length || 0,
+        firstResult: freesoundData.results?.[0] ? {
+          id: freesoundData.results[0].id,
+          name: freesoundData.results[0].name,
+          hasPreviews: !!freesoundData.results[0].previews
+        } : 'no results'
+      });
+      
       if (freesoundData.results.length === 0) {
         console.warn('No free Creative Commons audio found');
         return;
       }
 
       const randomSound = freesoundData.results[Math.floor(Math.random() * freesoundData.results.length)];
-      const audioUrl = randomSound.previews['preview-hq-mp3'] || randomSound.previews['preview-lq-mp3'];
+      
+      // Debug the sound structure
+      console.log('🎵 Freesound result structure:', {
+        id: randomSound.id,
+        name: randomSound.name,
+        hasPreviews: !!randomSound.previews,
+        previewKeys: randomSound.previews ? Object.keys(randomSound.previews) : 'no previews',
+        previews: randomSound.previews
+      });
+      
+      // Handle different preview URL structures
+      let audioUrl = null;
+      if (randomSound.previews) {
+        audioUrl = randomSound.previews['preview-hq-mp3'] || 
+                  randomSound.previews['preview-lq-mp3'] ||
+                  randomSound.previews['preview-hq-ogg'] ||
+                  randomSound.previews['preview-lq-ogg'];
+      }
+      
+      if (!audioUrl) {
+        console.warn('⚠️ No preview URL found for sound:', randomSound.id, randomSound.name);
+        return;
+      }
 
       console.log('📥 Downloading raw audio blob...');
       const audioResponse = await fetch(audioUrl);
@@ -1129,51 +1200,55 @@ export const ForeverMosh = () => {
           console.error('❌ Video play failed:', err);
         });
         
-              // Handle audio based on whether it was chopped into the video
-      if (nextVideo.moshingData?.audioIncluded) {
-        console.log('🎵 Video has embedded chopped audio, no separate audio needed');
-        setCurrentAudio(null);
-        // Unmute the video since it has its own audio
-        if (videoRef.current) {
-          videoRef.current.muted = false;
-        }
-      } else {
-        // Pair with separate audio track
-        if (audioQueue.length > 0 && audioRef.current) {
-          const pairedAudio = audioQueue[0];
-          console.log('🎵 Pairing separate audio with video:', pairedAudio);
-          
-          setCurrentAudio(pairedAudio);
-          setAudioQueue(prev => prev.slice(1));
-          setStats(prev => ({ 
-            ...prev, 
-            audioQueueLength: prev.audioQueueLength - 1
-          }));
-          
-          audioRef.current.src = pairedAudio.processedUrl;
-          audioRef.current.load();
-          audioRef.current.play().catch((err) => {
-            console.error('❌ Audio play failed:', err);
-          });
-          
-          // Keep video muted since separate audio is playing
+        // Handle audio based on whether it was chopped into the video
+        if (nextVideo.moshingData?.audioIncluded) {
+          console.log('🎵 Video has embedded chopped audio, no separate audio needed');
+          setCurrentAudio(null);
+          // Unmute the video since it has its own audio
           if (videoRef.current) {
-            videoRef.current.muted = true;
+            videoRef.current.muted = false;
           }
         } else {
-          console.log('⚠️ No separate audio available to pair with video');
-          setCurrentAudio(null);
-          // Keep video muted if no audio
-          if (videoRef.current) {
-            videoRef.current.muted = true;
+          // Pair with separate audio track
+          if (audioQueue.length > 0 && audioRef.current) {
+            const pairedAudio = audioQueue[0];
+            console.log('🎵 Pairing separate audio with video:', pairedAudio);
+            
+            setCurrentAudio(pairedAudio);
+            setAudioQueue(prev => prev.slice(1));
+            setStats(prev => ({ 
+              ...prev, 
+              audioQueueLength: prev.audioQueueLength - 1
+            }));
+            
+            audioRef.current.src = pairedAudio.processedUrl;
+            audioRef.current.load();
+            audioRef.current.play().catch((err) => {
+              console.error('❌ Audio play failed:', err);
+            });
+            
+            // Keep video muted since separate audio is playing
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+            }
+          } else {
+            console.log('⚠️ No separate audio available to pair with video');
+            setCurrentAudio(null);
+            // Keep video muted if no audio
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+            }
           }
         }
-      }
       } else {
         console.error('❌ Video ref not available');
       }
     } else {
-      console.log('⚠️ No videos in queue');
+      console.log('⚠️ No videos in queue - setting currentVideo to null');
+      // CRITICAL FIX: Set currentVideo to null when queue is empty
+      // This allows the auto-play logic to trigger when new videos are added
+      setCurrentVideo(null);
+      setCurrentAudio(null);
     }
   }, [videoQueue, audioQueue]);
 
@@ -1257,10 +1332,17 @@ export const ForeverMosh = () => {
       setIsPreloading(false);
     }
     
+    // Auto-play logic: Start playback when we have videos and no current video is playing
     if (videoQueue.length > 0 && !currentVideo && !isLoading && isStarted && !isPreloading) {
       console.log('🚀 Starting playback automatically (fallback)');
       playNextVideo();
-    } else if (videoQueue.length > 0 && isStarted) {
+    } 
+    // Additional trigger: If we have videos and we're in playback mode but no video is currently playing
+    else if (videoQueue.length > 0 && isStarted && !isPreloading && !isLoading) {
+      console.log('🔄 Queue replenished, restarting playback');
+      playNextVideo();
+    }
+    else if (videoQueue.length > 0 && isStarted) {
       console.log('⚠️ Auto-play conditions not met:', {
         hasVideos: videoQueue.length > 0,
         noCurrentVideo: !currentVideo,
@@ -1398,14 +1480,14 @@ export const ForeverMosh = () => {
               </button>
             )}
             
-            {!PEXELS_API_KEY && (
+            {!PEXELS_PROXY_BASE && (
               <div style={{ marginTop: '1rem', color: '#ffc107', fontSize: '0.9rem' }}>
-                ⚠️ Pexels API key not configured. Using fallback videos.
+                ⚠️ Pexels proxy not configured. Using fallback videos.
               </div>
             )}
-            {!FREESOUND_API_KEY && (
+            {!FREESOUND_PROXY_BASE && (
               <div style={{ marginTop: '0.5rem', color: '#ffc107', fontSize: '0.9rem' }}>
-                ⚠️ Freesound API key not configured. Audio will be disabled.
+                ⚠️ Freesound proxy not configured. Audio will be disabled.
               </div>
             )}
             {error && (
@@ -1433,64 +1515,78 @@ export const ForeverMosh = () => {
 
   return (
     <main className="ForeverMosh">
-      {/* Minimal overlay with stats */}
-      <div className="forever-overlay">
-        <div className="forever-mosh-stats">
-          <div className="stats-row">
-            <div className="stat-item">
-              <span className="stat-label">📹 Processed Videos:</span>
-              <span className="stat-value">{stats.videosProcessed}</span>
+      {/* Debug overlay with stats - toggleable with 't' key */}
+      {showDebug && (
+        <div className="forever-overlay">
+          <div className="forever-mosh-stats">
+            <div className="stats-row">
+              <div className="stat-item">
+                <span className="stat-label">📹 Processed Videos:</span>
+                <span className="stat-value">{stats.videosProcessed}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">🎵 Audio Tracks:</span>
+                <span className="stat-value">{stats.audiosProcessed}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">⏱️ Uptime:</span>
+                <span className="stat-value">{Math.floor(stats.uptime / 60)}:{(stats.uptime % 60).toString().padStart(2, '0')}</span>
+              </div>
             </div>
-            <div className="stat-item">
-              <span className="stat-label">🎵 Audio Tracks:</span>
-              <span className="stat-value">{stats.audiosProcessed}</span>
+            
+            <div className="stats-row">
+              <div className="stat-item">
+                <span className="stat-label">📦 Ready Queue:</span>
+                <span className="stat-value">{stats.queueLength}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">🔄 Processing:</span>
+                <span className="stat-value">{stats.processingCount}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">📥 Raw Materials:</span>
+                <span className="stat-value">{stats.rawVideoCount}v + {stats.rawAudioCount}a</span>
+              </div>
             </div>
-            <div className="stat-item">
-              <span className="stat-label">⏱️ Uptime:</span>
-              <span className="stat-value">{Math.floor(stats.uptime / 60)}:{(stats.uptime % 60).toString().padStart(2, '0')}</span>
-            </div>
+
+            {currentVideo && (
+              <div className="current-content">
+                <div>📹 Video: {currentVideo.pexelsData ? 
+                  `by ${currentVideo.pexelsData.user.name} (${currentVideo.pexelsData.duration}s)` : 
+                  currentVideo.id
+                }</div>
+                {currentVideo.moshingData && (
+                  <div>🎭 Preset: {currentVideo.moshingData.preset} ({currentVideo.moshingData.segments.length} segments, {currentVideo.moshingData.processingTime.toFixed(0)}ms)</div>
+                )}
+                {currentAudio && currentAudio.freesoundData && (
+                  <div>🎵 Audio: "{currentAudio.freesoundData.name}" by {currentAudio.freesoundData.username} ({currentAudio.freesoundData.duration.toFixed(1)}s) - {currentAudio.freesoundData.license}</div>
+                )}
+                {currentVideo && currentAudio && (
+                  <div>🔁 Audio loops: ~{Math.ceil((currentVideo.pexelsData?.duration || 30) / (currentAudio.freesoundData?.duration || 30))} times</div>
+                )}
+              </div>
+            )}
           </div>
           
-          <div className="stats-row">
-            <div className="stat-item">
-              <span className="stat-label">📦 Ready Queue:</span>
-              <span className="stat-value">{stats.queueLength}</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">🔄 Processing:</span>
-              <span className="stat-value">{stats.processingCount}</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">📥 Raw Materials:</span>
-              <span className="stat-value">{stats.rawVideoCount}v + {stats.rawAudioCount}a</span>
-            </div>
-          </div>
-
-          {currentVideo && (
-            <div className="current-content">
-              <div>📹 Video: {currentVideo.pexelsData ? 
-                `by ${currentVideo.pexelsData.user.name} (${currentVideo.pexelsData.duration}s)` : 
-                currentVideo.id
-              }</div>
-              {currentVideo.moshingData && (
-                <div>🎭 Preset: {currentVideo.moshingData.preset} ({currentVideo.moshingData.segments.length} segments, {currentVideo.moshingData.processingTime.toFixed(0)}ms)</div>
-              )}
-              {currentAudio && currentAudio.freesoundData && (
-                <div>🎵 Audio: "{currentAudio.freesoundData.name}" by {currentAudio.freesoundData.username} ({currentAudio.freesoundData.duration.toFixed(1)}s) - {currentAudio.freesoundData.license}</div>
-              )}
-              {currentVideo && currentAudio && (
-                <div>🔁 Audio loops: ~{Math.ceil((currentVideo.pexelsData?.duration || 30) / (currentAudio.freesoundData?.duration || 30))} times</div>
-              )}
+          {error && (
+            <div className="forever-error">
+              ⚠️ API Error: {error}
             </div>
           )}
         </div>
-        
-        {error && (
-          <div className="forever-error">
-            ⚠️ API Error: {error}
-          </div>
-        )}
-      </div>
+      )}
+
+      {/* Force Queue Button - Lower Left Corner */}
+      {isStarted && (
+        <button 
+          className="force-queue-button"
+          onClick={forceQueue}
+          disabled={videoQueue.length === 0}
+          title={`Force play next video (${videoQueue.length} ready)`}
+        >
+          🚀 Force Queue ({videoQueue.length})
+        </button>
+      )}
 
       {/* Full-screen video display */}
       <video

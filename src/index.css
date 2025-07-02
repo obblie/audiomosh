@@ -1192,6 +1192,58 @@ header {
   pointer-events: none;
 }
 
+.forever-mosh-stats {
+  background: rgba(0, 0, 0, 0.8);
+  padding: 12px 16px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  font-family: monospace;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  pointer-events: auto;
+}
+
+.stats-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.stats-row:last-child {
+  margin-bottom: 0;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-label {
+  color: #4ecdc4;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.stat-value {
+  color: white;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.current-content {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.current-content > div {
+  margin-bottom: 4px;
+}
+
 .forever-stats {
   display: flex;
   gap: 20px;
@@ -1239,6 +1291,39 @@ header {
   font-family: monospace;
 }
 
+/* Force Queue Button */
+.force-queue-button {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 10;
+  background: linear-gradient(45deg, #ff6b35, #ff8c42);
+  border: none;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: bold;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+}
+
+.force-queue-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.4);
+  background: linear-gradient(45deg, #ff8c42, #ff6b35);
+}
+
+.force-queue-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  background: rgba(128, 128, 128, 0.5);
+}
+
 /* Processing indicator */
 .forever-processing {
   position: absolute;
@@ -1278,10 +1363,32 @@ header {
     right: 10px;
   }
   
-  .forever-stats {
+  .forever-mosh-stats {
     padding: 8px 12px;
     font-size: 0.8rem;
+  }
+  
+  .stats-row {
     gap: 15px;
+  }
+  
+  .stat-label {
+    font-size: 0.75rem;
+  }
+  
+  .stat-value {
+    font-size: 0.9rem;
+  }
+  
+  .current-content {
+    font-size: 0.8rem;
+  }
+  
+  .force-queue-button {
+    bottom: 10px;
+    left: 10px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
   }
   
   .forever-processing {

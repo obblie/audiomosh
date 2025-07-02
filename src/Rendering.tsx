@@ -121,7 +121,7 @@ export const Rendering = ({
       onVideoElementReady(src ? videoRef.current : null);
     }
   }, [src, onVideoElementReady]);
-
+  
   // Cleanup on unmount
   useEffect(() => {
     return () => {

@@ -110,18 +110,18 @@ export const Studio = () => {
         settings={settings} 
         renderedVideoSrc={renderedVideoSrc}
       />
-      <Rendering
-        vids={vids}
-        segments={segments}
-        config={config}
-        settings={settings}
-        setSettings={setSettings}
-        preprocessSettings={preprocessSettings}
-        onRenderedVideo={setRenderedVideoSrc}
-        ffmpeg={ffmpegRef.current}
-        onSamplesChange={setAvailableSamples}
+              <Rendering
+          vids={vids}
+          segments={segments}
+          config={config}
+          settings={settings}
+          setSettings={setSettings}
+          preprocessSettings={preprocessSettings}
+          onRenderedVideo={setRenderedVideoSrc}
+          ffmpeg={ffmpegRef.current}
+          onSamplesChange={setAvailableSamples}
         onVideoElementReady={handleRenderedVideoReady}
-      />
+        />
     </main>
   );
 };
