@@ -316,6 +316,32 @@ export const ForeverMosh = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [showDebug]);
 
+  // Clear fallback videos from queue
+  const clearFallbackVideos = useCallback(() => {
+    setVideoQueue(prev => {
+      const filtered = prev.filter(video => 
+        !video.id?.includes('fallback') && 
+        !video.moshingData?.preset?.includes('fallback')
+      );
+      const removed = prev.length - filtered.length;
+      if (removed > 0) {
+        console.log(`🧹 Removed ${removed} fallback videos from queue`);
+      }
+      return filtered;
+    });
+    
+    setAudioQueue(prev => {
+      const filtered = prev.filter(audio => 
+        !audio.id?.includes('fallback')
+      );
+      const removed = prev.length - filtered.length;
+      if (removed > 0) {
+        console.log(`🧹 Removed ${removed} fallback audio tracks from queue`);
+      }
+      return filtered;
+    });
+  }, []);
+
   // Force queue function to manually trigger playback
   const forceQueue = useCallback(() => {
     console.log('🚀 Force queue triggered with', videoQueue.length, 'videos ready');
@@ -1356,7 +1382,7 @@ export const ForeverMosh = () => {
                 <div className="loading-spinner" style={{ width: '24px', height: '24px', margin: '0 auto 0.5rem' }}></div>
                 <div>Pre-loading {MIN_PRELOAD_VIDEOS} moshed videos... ({videoQueue.length}/{MIN_PRELOAD_VIDEOS})</div>
                 <div style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '0.5rem' }}>
-                  Processing: {stats.processingCount} | Raw: {stats.rawVideoCount}v + {stats.rawAudioCount}a
+                  Processing: {stats.processingCount} | Raw Materials: {stats.rawVideoCount} Videos + {stats.rawAudioCount} Audio tracks
                 </div>
               </div>
             )}
@@ -1374,6 +1400,7 @@ export const ForeverMosh = () => {
                 if (hasEnoughContent) {
                   // User clicked to start - enable autoplay immediately
                   console.log('🎬 User clicked Start Forever Mosh');
+                  clearFallbackVideos(); // Remove any existing fallback videos
                   setIsStarted(true);
                   setIsPreloading(false);
                   setIsFirstVideo(true); // Reset to first video for frame 0 start
@@ -1395,6 +1422,7 @@ export const ForeverMosh = () => {
                       await preloadContent();
                       // After preloading completes, automatically start
                       console.log('🎬 Pre-loading complete, auto-starting...');
+                      clearFallbackVideos(); // Remove any existing fallback videos
                       setIsStarted(true);
                       setIsPreloading(false);
                       setIsFirstVideo(true); // Reset to first video for frame 0 start
@@ -1444,6 +1472,7 @@ export const ForeverMosh = () => {
                 }}
                 onClick={() => {
                   console.log('🚨 Emergency override: Starting with', videoQueue.length, 'videos');
+                  clearFallbackVideos(); // Remove any existing fallback videos
                   setIsStarted(true);
                   setIsPreloading(false);
                   setIsFirstVideo(true); // Reset to first video for frame 0 start
@@ -1566,6 +1595,17 @@ export const ForeverMosh = () => {
           title={`Force play next video (${videoQueue.length} ready)`}
         >
           🚀 Force Queue ({videoQueue.length})
+        </button>
+      )}
+
+      {/* Clear Fallback Button - Lower Right Corner */}
+      {isStarted && (
+        <button 
+          className="clear-fallback-button"
+          onClick={clearFallbackVideos}
+          title="Clear any fallback videos from queue"
+        >
+          🧹 Clear Fallbacks
         </button>
       )}
 
