@@ -262,6 +262,7 @@ export const ForeverMosh = () => {
   const [isStarted, setIsStarted] = useState(false);
   const [isPreloading, setIsPreloading] = useState(true);
   const [showDebug, setShowDebug] = useState(true); // Debug text toggle
+  const [isFirstVideo, setIsFirstVideo] = useState(true); // Track if this is the first video
   const MIN_PRELOAD_VIDEOS = 4; // Minimum videos to preload before starting
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -1158,9 +1159,24 @@ export const ForeverMosh = () => {
         console.log('🔄 Setting video source:', nextVideo.processedUrl);
         videoRef.current.src = nextVideo.processedUrl;
         videoRef.current.load();
+        
+        // Set frame offset: first video starts at frame 0, subsequent videos start at frame 3
+        const frameOffset = isFirstVideo ? 0 : 3;
+        const timeOffset = frameOffset / 30; // Assuming 30fps, adjust if needed
+        
+        videoRef.current.addEventListener('loadedmetadata', () => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = timeOffset;
+            console.log(`🎬 Set video start time to ${timeOffset}s (frame ${frameOffset})`);
+          }
+        }, { once: true });
+        
         videoRef.current.play().catch((err) => {
           console.error('❌ Video play failed:', err);
         });
+        
+        // Mark that this is no longer the first video
+        setIsFirstVideo(false);
         
         // Handle audio based on whether it was chopped into the video
         if (nextVideo.moshingData?.audioIncluded) {
@@ -1332,7 +1348,7 @@ export const ForeverMosh = () => {
         <div className="forever-start">
           <div className="start-content">
             <h1>🎬🎵 Forever Mosh</h1>
-                          <p>Endless moshing powered by <a href="https://github.com/ninofiliu/supermosh" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Supermosh by @ninofiliu</a></p>
+                          <p>Endless moshing powered by <a href="https://github.com/ninofiliu/supermosh" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Supermosh</a></p>
             
             {/* Pre-loading status */}
             {isCurrentlyPreloading && (
@@ -1360,6 +1376,7 @@ export const ForeverMosh = () => {
                   console.log('🎬 User clicked Start Forever Mosh');
                   setIsStarted(true);
                   setIsPreloading(false);
+                  setIsFirstVideo(true); // Reset to first video for frame 0 start
                   
                   // Immediately try to play the first video in the user gesture context
                   setTimeout(() => {
@@ -1380,6 +1397,7 @@ export const ForeverMosh = () => {
                       console.log('🎬 Pre-loading complete, auto-starting...');
                       setIsStarted(true);
                       setIsPreloading(false);
+                      setIsFirstVideo(true); // Reset to first video for frame 0 start
                       
                       // Start playback immediately after preloading
                       setTimeout(() => {
@@ -1428,6 +1446,7 @@ export const ForeverMosh = () => {
                   console.log('🚨 Emergency override: Starting with', videoQueue.length, 'videos');
                   setIsStarted(true);
                   setIsPreloading(false);
+                  setIsFirstVideo(true); // Reset to first video for frame 0 start
                   
                   // Immediately start playback in user gesture context
                   setTimeout(() => {
