@@ -382,8 +382,23 @@ export const ForeverMosh = () => {
           selectedPresets.push(FOREVER_MOSH_PRESETS[index]);
         }
         
+        // Apply frame offset based on whether this is the first video
+        const frameOffset = isFirstVideo ? 0 : 3;
+        console.log(`🎬 Creating preset with frame offset: ${frameOffset} (${isFirstVideo ? 'first' : 'subsequent'} video)`);
+        
         if (selectedPresets.length === 1) {
-          return selectedPresets[0];
+          // Apply frame offset to single preset
+          const preset = selectedPresets[0];
+          const adjustedSegments = preset.segments.map(segment => ({
+            from: segment.from + frameOffset,
+            to: segment.to + frameOffset,
+            repeat: segment.repeat
+          }));
+          
+          return {
+            name: preset.name,
+            segments: adjustedSegments
+          };
         }
         
         // COMBINE MULTIPLE PRESETS INTO HYBRID PATTERN
@@ -395,11 +410,11 @@ export const ForeverMosh = () => {
           const sectionStart = presetIndex * sectionDuration;
           const sectionEnd = (presetIndex + 1) * sectionDuration;
           
-          // Add segments from this preset, offset to its section
+          // Add segments from this preset, offset to its section AND apply frame offset
           preset.segments.forEach(segment => {
             const offsetSegment = {
-              from: sectionStart + (segment.from * (sectionDuration / 100)), // Scale to section
-              to: sectionStart + (segment.to * (sectionDuration / 100)),
+              from: sectionStart + (segment.from * (sectionDuration / 100)) + frameOffset, // Scale to section + frame offset
+              to: sectionStart + (segment.to * (sectionDuration / 100)) + frameOffset,
               repeat: segment.repeat + Math.floor(Math.random() * 3) // Add variation to repeats
             };
             
@@ -416,8 +431,8 @@ export const ForeverMosh = () => {
             
             // Create transition stutter
             combinedSegments.push({
-              from: transitionStart,
-              to: transitionEnd,
+              from: transitionStart + frameOffset,
+              to: transitionEnd + frameOffset,
               repeat: 8 + Math.floor(Math.random() * 16) // 8-24 repeats for transition
             });
           }
@@ -430,8 +445,8 @@ export const ForeverMosh = () => {
             const mixStart = Math.random() * (totalDuration - 10);
             const mixDuration = 2 + Math.random() * 6; // 2-8 frame segments
             combinedSegments.push({
-              from: mixStart,
-              to: mixStart + mixDuration,
+              from: mixStart + frameOffset,
+              to: mixStart + mixDuration + frameOffset,
               repeat: 4 + Math.floor(Math.random() * 20) // 4-24 repeats
             });
           }
@@ -539,6 +554,10 @@ export const ForeverMosh = () => {
       const createRhythmicSegments = (baseSegments: any[]) => {
         const adaptedSegments = [];
         
+        // Apply frame offset based on whether this is the first video
+        const frameOffset = isFirstVideo ? 0 : 3;
+        console.log(`🎵 Creating rhythmic segments with frame offset: ${frameOffset} (${isFirstVideo ? 'first' : 'subsequent'} video)`);
+        
         // Apply tempo variations - create different rhythmic feels
         const tempoModes = ['steady', 'accelerating', 'decelerating', 'syncopated', 'polyrhythmic'];
         const selectedTempo = tempoModes[Math.floor(Math.random() * tempoModes.length)];
@@ -593,6 +612,10 @@ export const ForeverMosh = () => {
               break;
           }
           
+          // Apply frame offset to the final segment positions
+          baseFrom += frameOffset;
+          baseTo += frameOffset;
+          
           // Ensure segments are valid and within bounds
           baseFrom = Math.max(0, Math.floor(baseFrom));
           baseTo = Math.min(TARGET_DURATION_FRAMES - 1, Math.floor(baseTo));
@@ -630,8 +653,8 @@ export const ForeverMosh = () => {
             
             adaptedSegments.push({
               name: `rhythmic_fill_${i}`,
-              from: Math.floor(fillStart),
-              to: Math.floor(fillStart + fillDuration),
+              from: Math.floor(fillStart + frameOffset),
+              to: Math.floor(fillStart + fillDuration + frameOffset),
               repeat: fillRepeats,
               rhythmicMode: 'fill',
               audio: Math.random() > 0.5 ? {
@@ -1382,7 +1405,7 @@ export const ForeverMosh = () => {
                 <div className="loading-spinner" style={{ width: '24px', height: '24px', margin: '0 auto 0.5rem' }}></div>
                 <div>Pre-loading {MIN_PRELOAD_VIDEOS} moshed videos... ({videoQueue.length}/{MIN_PRELOAD_VIDEOS})</div>
                 <div style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '0.5rem' }}>
-                  Processing: {stats.processingCount} | Raw Materials: {stats.rawVideoCount} Videos + {stats.rawAudioCount} Audio tracks
+                  Processing: {stats.processingCount} A/V Pairs | Raw Materials: {stats.rawVideoCount} Videos + {stats.rawAudioCount} Audio tracks
                 </div>
               </div>
             )}
