@@ -809,35 +809,16 @@ export const ForeverMosh = () => {
         return moshedVideo;
 
       } catch (moshError) {
-        console.error('🎭 Supermosh processing failed, falling back to original video:', moshError);
+        console.error('🎭 Supermosh processing failed, skipping video:', moshError);
         
-        // Fallback to original video if moshing fails
-        const processingTime = performance.now() - startTime;
-        return {
-          ...rawVideo,
-          id: `fallback-${Date.now()}-${rawVideo.originalId}`,
-          moshingData: {
-            preset: preset.name + ' (fallback)',
-            segments: adaptedSegments,
-            processingTime,
-            audioIncluded: false
-          }
-        };
+        // Don't create fallback - throw error to skip this video
+        throw new Error('Moshing failed - skipping video');
       }
 
     } catch (error) {
       console.error('🎭 Mosh processing failed:', error);
-      // Return original video as fallback
-      return {
-        ...rawVideo,
-        id: `fallback-${Date.now()}-${rawVideo.originalId}`,
-        moshingData: {
-          preset: 'fallback',
-          segments: [],
-          processingTime: performance.now() - startTime,
-          audioIncluded: false
-        }
-      };
+      // Don't create fallback - throw error to skip this video
+      throw new Error('Moshing failed - skipping video');
     }
   };
 
@@ -856,6 +837,19 @@ export const ForeverMosh = () => {
           setTimeout(() => reject(new Error('Processing timeout after 5 minutes')), 5 * 60 * 1000)
         )
       ]);
+      
+      // Check if this is a fallback video and skip it
+      if (processedVideo.moshingData?.preset?.includes('fallback') || 
+          processedVideo.id?.includes('fallback')) {
+        console.log('🎭 Skipping fallback video:', processedVideo.id);
+        // Remove from processing queue without adding to video queue
+        setProcessingQueue(prev => prev.slice(1));
+        setStats(prev => ({
+          ...prev,
+          processingCount: prev.processingCount - 1
+        }));
+        return;
+      }
       
       // Add to final video queue
       setVideoQueue(prev => [...prev, processedVideo]);
@@ -891,36 +885,14 @@ export const ForeverMosh = () => {
     } catch (error) {
       console.error('❌ Processing failed:', error);
       
-      // Create a fallback video using the original video without moshing
-      try {
-        console.log('🎭 Creating fallback video without moshing effects');
-        const fallbackVideo: ProcessedVideo = {
-          ...video,
-          id: `fallback-${Date.now()}-${video.originalId}`,
-          moshingData: {
-            preset: preset.name + ' (fallback - no moshing)',
-            segments: [],
-            processingTime: 0,
-            audioIncluded: false
-          }
-        };
-        
-        // Add fallback video to queue
-        setVideoQueue(prev => [...prev, fallbackVideo]);
-        setAudioQueue(prev => [...prev, audio]);
-        
-        console.log('✅ Added fallback video to queue:', fallbackVideo.id);
-      } catch (fallbackError) {
-        console.error('❌ Even fallback failed:', fallbackError);
-      }
+      // Don't create fallback video - just remove from processing queue
+      console.log('🎭 Skipping failed video - no fallback created');
       
       // Remove failed item from queue
       setProcessingQueue(prev => prev.slice(1));
       setStats(prev => ({ 
         ...prev, 
-        processingCount: prev.processingCount - 1,
-        queueLength: prev.queueLength + 1,
-        audioQueueLength: prev.audioQueueLength + 1
+        processingCount: prev.processingCount - 1
       }));
     }
   };
@@ -969,17 +941,7 @@ export const ForeverMosh = () => {
       console.log('📹 Fetching raw video from Pexels...');
       
       if (!PEXELS_PROXY_BASE) {
-        console.warn('Pexels proxy base not configured. Using fallback video.');
-        const fallbackVideo: ProcessedVideo = {
-          id: `fallback-${Date.now()}`,
-          originalId: 'demo',
-          originalUrl: '/s3/cover.mp4',
-          processedUrl: '/s3/cover.mp4',
-          timestamp: new Date()
-        };
-        
-        setRawVideoQueue(prev => [...prev, fallbackVideo]);
-        setStats(prev => ({ ...prev, rawVideoCount: prev.rawVideoCount + 1 }));
+        console.warn('Pexels proxy base not configured. Skipping video fetch.');
         return;
       }
 
