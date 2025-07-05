@@ -108,145 +108,173 @@ interface ProcessedVideo {
   };
 }
 
-// Moshing presets for ForeverMosh processing
-const FOREVER_MOSH_PRESETS = [
-  {
-    name: "Breakbeat Chop",
-    segments: [
-      { from: 0, to: 1, repeat: 16 },      // Kick pattern
-      { from: 2, to: 3, repeat: 8 },       // Snare
-      { from: 1, to: 2, repeat: 32 },      // Hi-hat rapid
-      { from: 4, to: 8, repeat: 2 },       // Fill
-      { from: 0, to: 1, repeat: 24 },      // Kick variation
-      { from: 3, to: 4, repeat: 12 },      // Crash
-      { from: 1, to: 3, repeat: 16 },      // Complex pattern
-      { from: 8, to: 12, repeat: 1 },      // Break
-      { from: 0, to: 2, repeat: 20 },      // Return to beat
-    ]
-  },
-  {
-    name: "Glitch Cascade",
-    segments: [
-      { from: 0, to: 0.5, repeat: 64 },    // Ultra micro stutter
-      { from: 2, to: 6, repeat: 4 },       // Medium chunk
-      { from: 0.5, to: 1, repeat: 48 },    // Micro stutter 2
-      { from: 8, to: 10, repeat: 8 },      // Rhythmic break
-      { from: 1, to: 1.5, repeat: 32 },    // Building intensity
-      { from: 12, to: 20, repeat: 1 },     // Long section
-      { from: 0, to: 1, repeat: 40 },      // Return to chaos
-      { from: 0.2, to: 0.8, repeat: 80 },  // Extreme fragmentation
-    ]
-  },
-  {
-    name: "Syncopated Rhythm",
-    segments: [
-      { from: 0, to: 3, repeat: 5 },       // Downbeat
-      { from: 1, to: 2, repeat: 12 },      // Off-beat emphasis
-      { from: 4, to: 5, repeat: 8 },       // Syncopation
-      { from: 2, to: 4, repeat: 6 },       // Counter-rhythm
-      { from: 6, to: 8, repeat: 3 },       // Resolution
-      { from: 1, to: 3, repeat: 10 },      // Polyrhythm
-      { from: 5, to: 7, repeat: 7 },       // Cross-rhythm
-      { from: 8, to: 16, repeat: 1 },      // Breathing space
-      { from: 0, to: 2, repeat: 15 },      // Final pattern
-    ]
-  },
-  {
-    name: "Tribal Percussion",
-    segments: [
-      { from: 0, to: 2, repeat: 12 },      // Base drum
-      { from: 1, to: 1.5, repeat: 24 },    // High percussion
-      { from: 3, to: 4, repeat: 8 },       // Low tom
-      { from: 2, to: 3, repeat: 16 },      // Mid percussion
-      { from: 4, to: 6, repeat: 4 },       // Accent pattern
-      { from: 0.5, to: 1.5, repeat: 20 },  // Polyrhythmic layer
-      { from: 6, to: 8, repeat: 6 },       // Building tension
-      { from: 1, to: 4, repeat: 8 },       // Complex pattern
-      { from: 8, to: 12, repeat: 2 },      // Release
-    ]
-  },
-  {
-    name: "Liquid DNB",
-    segments: [
-      { from: 0, to: 0.25, repeat: 120 },  // Amen break style
-      { from: 1, to: 1.25, repeat: 96 },   // Snare rolls
-      { from: 0.5, to: 0.75, repeat: 80 }, // Ghost notes
-      { from: 2, to: 4, repeat: 8 },       // Bass line
-      { from: 0.25, to: 0.5, repeat: 100 }, // Hi-hat work
-      { from: 4, to: 8, repeat: 4 },       // Breakdown
-      { from: 0, to: 1, repeat: 60 },      // Full pattern
-      { from: 8, to: 16, repeat: 2 },      // Atmospheric section
-    ]
-  },
-  {
-    name: "IDM Fractal",
-    segments: [
-      { from: 0, to: 0.1, repeat: 200 },   // Microscopic detail
-      { from: 0.3, to: 0.7, repeat: 150 }, // Algorithmic pattern
-      { from: 1, to: 1.2, repeat: 100 },   // Nested rhythms
-      { from: 0.1, to: 0.3, repeat: 180 }, // Granular texture
-      { from: 2, to: 3, repeat: 40 },      // Structural element
-      { from: 0.5, to: 1.5, repeat: 80 },  // Cross-fade pattern
-      { from: 3, to: 6, repeat: 20 },      // Evolving sequence
-      { from: 0, to: 2, repeat: 50 },      // Recursive pattern
-    ]
-  },
-  {
-    name: "Trap Rolls",
-    segments: [
-      { from: 0, to: 1, repeat: 8 },       // 808 kick
-      { from: 2, to: 3, repeat: 16 },      // Snare
-      { from: 1, to: 1.5, repeat: 32 },    // Hi-hat rolls
-      { from: 0.5, to: 1, repeat: 24 },    // Kick variation
-      { from: 3, to: 4, repeat: 12 },      // Clap
-      { from: 1.5, to: 2, repeat: 28 },    // Complex hi-hats
-      { from: 4, to: 8, repeat: 4 },       // 808 slide
-      { from: 0, to: 0.5, repeat: 48 },    // Rapid fire kicks
-      { from: 8, to: 12, repeat: 2 },      // Drop section
-    ]
-  },
-  {
-    name: "Aphex Stutter",
-    segments: [
-      { from: 0, to: 0.05, repeat: 400 },  // Extreme granulation
-      { from: 0.2, to: 0.4, repeat: 200 }, // Pitch-shifted fragments
-      { from: 1, to: 1.1, repeat: 180 },   // Micro-edits
-      { from: 0.1, to: 0.2, repeat: 300 }, // Glitched transitions
-      { from: 2, to: 2.5, repeat: 120 },   // Rhythmic anchor
-      { from: 0.05, to: 0.15, repeat: 250 }, // Nested loops
-      { from: 3, to: 5, repeat: 60 },      // Breathing room
-      { from: 0, to: 1, repeat: 100 },     // Return to chaos
-    ]
-  },
-  {
-    name: "Jungle Madness",
-    segments: [
-      { from: 0, to: 0.5, repeat: 80 },    // Amen chops
-      { from: 1, to: 1.5, repeat: 64 },    // Ragga vocals
-      { from: 0.25, to: 0.75, repeat: 96 }, // Breakbeat science
-      { from: 2, to: 3, repeat: 32 },      // Bass stabs
-      { from: 0.5, to: 1, repeat: 72 },    // Snare rush
-      { from: 3, to: 4, repeat: 24 },      // Reese bass
-      { from: 0, to: 1, repeat: 56 },      // Full break
-      { from: 4, to: 8, repeat: 8 },       // Steppers section
-      { from: 1, to: 2, repeat: 48 },      // Final chop
-    ]
-  },
-  {
-    name: "Minimal Techno",
-    segments: [
-      { from: 0, to: 4, repeat: 8 },       // Four-on-floor
-      { from: 1, to: 2, repeat: 16 },      // Off-beat elements
-      { from: 2, to: 3, repeat: 12 },      // Percussion layer
-      { from: 0, to: 1, repeat: 20 },      // Kick emphasis
-      { from: 4, to: 6, repeat: 6 },       // Filter sweep
-      { from: 3, to: 4, repeat: 10 },      // Rhythmic variation
-      { from: 6, to: 8, repeat: 4 },       // Build-up
-      { from: 0, to: 2, repeat: 14 },      // Pattern return
-      { from: 8, to: 16, repeat: 2 },      // Extended groove
-    ]
-  }
+// Moshing presets for ForeverMosh processing (new structure)
+const MOSH_PRESETS = [
+  { name: "Classic Melt", type: "classic" },
+  { name: "Swap Morph", type: "swap" },
+  { name: "Stutter", type: "stutter" },
+  { name: "Random Chaos", type: "random" },
+  { name: "Ghost Blend", type: "blend" }
 ];
+
+// Utility to pick a random preset
+function pickRandomPreset() {
+  return MOSH_PRESETS[Math.floor(Math.random() * MOSH_PRESETS.length)];
+}
+
+// Efficient datamosh implementations - focus on Classic Melt and Stutter
+function moshClassic(chunks: EncodedVideoChunk[], targetFrames: number = 150): EncodedVideoChunk[] {
+  console.log('🎭 Applying Classic Melt datamosh...');
+  
+  if (chunks.length < 10) return chunks;
+  
+  const result: EncodedVideoChunk[] = [];
+  
+  // Find the first I-frame (key frame) efficiently
+  const iFrameIndex = chunks.findIndex(chunk => chunk.type === 'key');
+  if (iFrameIndex === -1) {
+    console.warn('🎭 No I-frame found, using first chunk');
+    result.push(chunks[0]);
+    return result;
+  }
+  
+  // Add the I-frame
+  result.push(chunks[iFrameIndex]);
+  
+  // Find P-frames to repeat (delta frames) - limit to 15 for efficiency
+  const pFrames = chunks.slice(iFrameIndex + 1, iFrameIndex + 16).filter(chunk => chunk.type === 'delta');
+  
+  if (pFrames.length === 0) {
+    console.warn('🎭 No P-frames found after I-frame');
+    return result;
+  }
+  
+  // Repeat P-frames to create melting effect - efficient calculation
+  const repeatCount = Math.min(20, Math.floor(targetFrames / pFrames.length));
+  console.log(`🎭 Repeating ${pFrames.length} P-frames ${repeatCount} times for melting effect`);
+  
+  // Efficient repetition using Array.fill and flatMap
+  const repeatedPFrames = Array(repeatCount).fill(pFrames).flat();
+  result.push(...repeatedPFrames);
+  
+  // Add some random P-frames for extra chaos - limited for efficiency
+  const allPFrames = chunks.filter(chunk => chunk.type === 'delta');
+  const randomCount = Math.min(8, allPFrames.length);
+  for (let i = 0; i < randomCount; i++) {
+    result.push(allPFrames[Math.floor(Math.random() * allPFrames.length)]);
+  }
+  
+  console.log(`🎭 Classic Melt complete: ${result.length} chunks`);
+  return result;
+}
+
+function moshStutter(chunks: EncodedVideoChunk[], targetFrames: number = 150): EncodedVideoChunk[] {
+  console.log('🎭 Applying Stutter datamosh...');
+  
+  if (chunks.length < 10) return chunks;
+  
+  const result: EncodedVideoChunk[] = [];
+  
+  // Find I-frames efficiently
+  const iFrames = chunks.map((chunk, index) => chunk.type === 'key' ? index : -1).filter(index => index !== -1);
+  
+  if (iFrames.length === 0) {
+    console.warn('🎭 No I-frames found for stutter');
+    return chunks;
+  }
+  
+  // Create stutter patterns efficiently
+  for (let i = 0; i < iFrames.length && result.length < targetFrames; i++) {
+    const iFrameIndex = iFrames[i];
+    
+    // Add the I-frame
+    result.push(chunks[iFrameIndex]);
+    
+    // Find P-frames after this I-frame - limit to 8 for efficiency
+    const pFrames = chunks.slice(iFrameIndex + 1, iFrameIndex + 9).filter(chunk => chunk.type === 'delta');
+    
+    if (pFrames.length > 0) {
+      // Stutter: repeat the P-frame sequence 3-6 times
+      const stutterCount = 3 + Math.floor(Math.random() * 4);
+      for (let stutter = 0; stutter < stutterCount; stutter++) {
+        result.push(...pFrames);
+      }
+    }
+  }
+  
+  // Add micro-stutters efficiently
+  const allPFrames = chunks.filter(chunk => chunk.type === 'delta');
+  if (allPFrames.length > 0) {
+    const microStutterCount = Math.min(4, Math.floor(Math.random() * 5) + 2);
+    for (let i = 0; i < microStutterCount; i++) {
+      const randomPFrame = allPFrames[Math.floor(Math.random() * allPFrames.length)];
+      const microRepeat = 5 + Math.floor(Math.random() * 8);
+      for (let j = 0; j < microRepeat; j++) {
+        result.push(randomPFrame);
+      }
+    }
+  }
+  
+  console.log(`🎭 Stutter complete: ${result.length} chunks`);
+  return result;
+}
+
+// Keep other presets as stubs for now
+function moshSwap(chunks: EncodedVideoChunk[]): EncodedVideoChunk[] {
+  // TODO: Implement swap morph (I-frame + P-frames from another GOP)
+  return chunks;
+}
+function moshRandom(chunks: EncodedVideoChunk[]): EncodedVideoChunk[] {
+  // TODO: Implement random chaos (I-frame + random P-frames)
+  return chunks;
+}
+function moshBlend(chunks: EncodedVideoChunk[]): EncodedVideoChunk[] {
+  // TODO: Implement blend (I-frame + crossfaded P-frames)
+  return chunks;
+}
+
+// Add logging utility at the top of the file
+let allLogs: string[] = [];
+
+const logToFile = (message: string, data?: any) => {
+  const timestamp = new Date().toISOString();
+  const csvLine = `${timestamp},"${message.replace(/"/g, '""')}","${JSON.stringify(data || '').replace(/"/g, '""')}"\n`;
+  
+  // Add to all logs array
+  allLogs.push(csvLine);
+  
+  // Also log to console for debugging
+  console.log(`[${timestamp}] ${message}`, data);
+  console.log(`📊 Total logs accumulated: ${allLogs.length}`);
+};
+
+const downloadLogFile = () => {
+  if (allLogs.length === 0) {
+    console.log('No logs to download');
+    return;
+  }
+  
+  console.log(`📊 Preparing to download ${allLogs.length} log entries...`);
+  
+  // Create CSV header
+  const header = 'timestamp,message,data\n';
+  const csvContent = header + allLogs.join('');
+  
+  console.log(`📊 CSV content length: ${csvContent.length} characters`);
+  
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'forevermosh_complete_log.csv';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  console.log(`✅ Downloaded ${allLogs.length} log entries as single file`);
+};
 
 export const ForeverMosh = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -273,6 +301,7 @@ export const ForeverMosh = () => {
     rawVideoCount: 0,
     rawAudioCount: 0,
     processingCount: 0,
+    failedProcessing: 0,
     uptime: 0,
     startTime: Date.now()
   });
@@ -352,13 +381,13 @@ export const ForeverMosh = () => {
     }
   }, [videoQueue]);
 
-  // Process multiple videos together into a 30-second moshed clip
+  // Process multiple videos together into a 20-second moshed clip
   const processMoshPair = async (
     rawVideo: ProcessedVideo, 
     rawAudio: ProcessedAudio
   ): Promise<ProcessedVideo> => {
     const startTime = performance.now();
-    console.log('🎭 Starting 30-second mosh processing for pair:', {
+    console.log('🎭 Starting supermosh processing for pair:', {
       primaryVideo: rawVideo.id,
       audio: rawAudio.id,
       availableVideos: rawVideoQueue.length,
@@ -366,116 +395,15 @@ export const ForeverMosh = () => {
     });
 
     try {
-      // ENHANCED PRESET SELECTION - Combine multiple presets for dynamic patterns
-      const createDynamicPreset = () => {
-        const numPresets = Math.random() < 0.3 ? 1 : (Math.random() < 0.7 ? 2 : 3); // 30% single, 40% dual, 30% triple
-        const selectedPresets = [];
-        const usedIndices = new Set();
-        
-        // Select random unique presets
-        for (let i = 0; i < numPresets; i++) {
-          let index;
-          do {
-            index = Math.floor(Math.random() * FOREVER_MOSH_PRESETS.length);
-          } while (usedIndices.has(index));
-          usedIndices.add(index);
-          selectedPresets.push(FOREVER_MOSH_PRESETS[index]);
-        }
-        
-        // Apply frame offset based on whether this is the first video
-        const frameOffset = isFirstVideo ? 0 : 3;
-        console.log(`🎬 Creating preset with frame offset: ${frameOffset} (${isFirstVideo ? 'first' : 'subsequent'} video)`);
-        
-        if (selectedPresets.length === 1) {
-          // Apply frame offset to single preset
-          const preset = selectedPresets[0];
-          const adjustedSegments = preset.segments.map(segment => ({
-            from: segment.from + frameOffset,
-            to: segment.to + frameOffset,
-            repeat: segment.repeat
-          }));
-          
-          return {
-            name: preset.name,
-            segments: adjustedSegments
-          };
-        }
-        
-        // COMBINE MULTIPLE PRESETS INTO HYBRID PATTERN
-        const combinedSegments = [];
-        const totalDuration = 150; // Base timeline
-        const sectionDuration = totalDuration / selectedPresets.length;
-        
-        selectedPresets.forEach((preset, presetIndex) => {
-          const sectionStart = presetIndex * sectionDuration;
-          const sectionEnd = (presetIndex + 1) * sectionDuration;
-          
-          // Add segments from this preset, offset to its section AND apply frame offset
-          preset.segments.forEach(segment => {
-            const offsetSegment = {
-              from: sectionStart + (segment.from * (sectionDuration / 100)) + frameOffset, // Scale to section + frame offset
-              to: sectionStart + (segment.to * (sectionDuration / 100)) + frameOffset,
-              repeat: segment.repeat + Math.floor(Math.random() * 3) // Add variation to repeats
-            };
-            
-            // Ensure segment stays within bounds
-            if (offsetSegment.from < sectionEnd && offsetSegment.to <= sectionEnd) {
-              combinedSegments.push(offsetSegment);
-            }
-          });
-          
-          // Add transition effects between presets
-          if (presetIndex < selectedPresets.length - 1) {
-            const transitionStart = sectionEnd - 5;
-            const transitionEnd = sectionEnd + 5;
-            
-            // Create transition stutter
-            combinedSegments.push({
-              from: transitionStart + frameOffset,
-              to: transitionEnd + frameOffset,
-              repeat: 8 + Math.floor(Math.random() * 16) // 8-24 repeats for transition
-            });
-          }
-        });
-        
-        // Add some cross-preset mixing segments
-        if (selectedPresets.length > 1) {
-          const mixSegments = Math.floor(Math.random() * 4) + 2; // 2-5 mix segments
-          for (let i = 0; i < mixSegments; i++) {
-            const mixStart = Math.random() * (totalDuration - 10);
-            const mixDuration = 2 + Math.random() * 6; // 2-8 frame segments
-            combinedSegments.push({
-              from: mixStart + frameOffset,
-              to: mixStart + mixDuration + frameOffset,
-              repeat: 4 + Math.floor(Math.random() * 20) // 4-24 repeats
-            });
-          }
-        }
-        
-        // Sort segments by start time for coherent playback
-        combinedSegments.sort((a, b) => a.from - b.from);
-        
-        const presetNames = selectedPresets.map(p => p.name).join(' + ');
-        return {
-          name: `${presetNames} (Hybrid)`,
-          segments: combinedSegments
-        };
-      };
-      
-      const preset = createDynamicPreset();
-      console.log('🎭 Created dynamic preset:', preset.name, 'with', preset.segments.length, 'segments');
+      // Target variable duration between 3-7 seconds at 30 FPS = 90-210 frames
+      const minDuration = 3; // 3 seconds
+      const maxDuration = 7; // 7 seconds
+      const TARGET_DURATION_SECONDS = Math.random() * (maxDuration - minDuration) + minDuration;
+      const TARGET_DURATION_FRAMES = Math.floor(TARGET_DURATION_SECONDS * 30);
 
-      // Collect videos for mixing (primary + up to 1 other for stability)
-      const availableVideos = [rawVideo, ...rawVideoQueue.slice(0, 1)];
-      const videoSources: { video: ProcessedVideo; chunks: any[]; config: VideoDecoderConfig; width: number; height: number }[] = [];
-
-      console.log('🎭 Processing', availableVideos.length, 'videos for 30-second mixing');
-
-      // Get FFmpeg instance (we need to create one for ForeverMosh)
+      // Get FFmpeg instance
       const ffmpeg = new (await import('@ffmpeg/ffmpeg')).FFmpeg();
-      const { toBlobURL } = await import('@ffmpeg/util');
-      
-      // Load FFmpeg if not already loaded
+      const { toBlobURL, fetchFile } = await import('@ffmpeg/util');
       if (!ffmpeg.loaded) {
         const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
         await ffmpeg.load({
@@ -484,390 +412,117 @@ export const ForeverMosh = () => {
         });
       }
 
-      // Process each video to get chunks for mixing
-      for (const video of availableVideos) {
-        try {
-          // Analyze video
-          const videoElement = document.createElement('video');
-          videoElement.crossOrigin = 'anonymous';
-          videoElement.src = video.processedUrl;
-          
-          await new Promise((resolve, reject) => {
-            videoElement.onloadedmetadata = resolve;
-            videoElement.onerror = reject;
-            videoElement.load();
-          });
-
-          const videoWidth = videoElement.videoWidth || 640;
-          const videoHeight = videoElement.videoHeight || 480;
-
-          // Convert to file for processing
-          const videoResponse = await fetch(video.processedUrl);
+      // Download the video file
+      const videoResponse = await fetch(rawVideo.processedUrl);
           const videoBlob = await videoResponse.blob();
-          const videoFile = new File([videoBlob], `${video.id}.mp4`, { type: 'video/mp4' });
+      const videoFile = new File([videoBlob], `${rawVideo.id}.mp4`, { type: 'video/mp4' });
 
+      // Extract video chunks and config
           let videoConfig: VideoDecoderConfig | null = null;
-
-          // Extract chunks
           const chunks = await computeChunks(
             ffmpeg,
             videoFile,
-            video.id,
-            videoWidth,
-            videoHeight,
+        rawVideo.id,
+        640, // You may want to detect or set dynamically
+        480,
             (config: VideoDecoderConfig) => {
               videoConfig = config;
             }
           );
+      if (!videoConfig || chunks.length === 0) throw new Error('Failed to extract video chunks');
 
-          if (videoConfig && chunks.length > 0) {
-            videoSources.push({ video, chunks, config: videoConfig, width: videoWidth, height: videoHeight });
-            console.log('🎭 Processed video source:', video.id, '- chunks:', chunks.length);
-          }
-
-        } catch (error) {
-          console.warn('⚠️ Failed to process video source:', video.id, error);
+      // Build a segment list for neverending mosh effect using the Blends preset
+      const BLENDS_PRESET = [
+        { from: 0, to: 39, repeat: 1 },
+        { from: 38, to: 44, repeat: 39 },
+        { from: 4, to: 50, repeat: 1 },
+        { from: 48, to: 55, repeat: 40 },
+        { from: 53, to: 57, repeat: 25 },
+        { from: 90, to: 120, repeat: 1 },
+        { from: 118, to: 122, repeat: 54 }
+      ];
+      // Adapt segments to the current video length
+      const segments = BLENDS_PRESET.map((seg, i) => ({
+        name: rawVideo.id,
+        from: Math.max(0, Math.min(seg.from, chunks.length - 1)),
+        to: Math.max(seg.from + 1, Math.min(seg.to, chunks.length)),
+        repeat: seg.repeat,
+        audio: {
+          type: 'sample' as const,
+          sampleUrl: rawAudio.processedUrl,
+          volume: 0.5 + 0.1 * (i % 3) // vary volume a bit for variety
         }
-      }
+      }));
 
-      if (videoSources.length === 0) {
-        throw new Error('No video sources could be processed for mixing');
-      }
-      
-      // If we have multiple sources but they have very different dimensions, use only the primary video
-      if (videoSources.length > 1) {
-        const primaryDimensions = `${videoSources[0].width}x${videoSources[0].height}`;
-        const hasConflictingDimensions = videoSources.some(source => 
-          `${source.width}x${source.height}` !== primaryDimensions
-        );
-        
-        if (hasConflictingDimensions) {
-          console.log('🎭 Dimension conflicts detected, using only primary video for stability');
-          videoSources.splice(1); // Keep only the first (primary) video
-        }
-      }
-
-      // Target 30 seconds at 30 FPS = 900 frames max
-      const TARGET_DURATION_FRAMES = 900;
-      
-      // ENHANCED RHYTHMIC SEGMENT ADAPTATION
-      const createRhythmicSegments = (baseSegments: any[]) => {
-        const adaptedSegments = [];
-        
-        // Apply frame offset based on whether this is the first video
-        const frameOffset = isFirstVideo ? 0 : 3;
-        console.log(`🎵 Creating rhythmic segments with frame offset: ${frameOffset} (${isFirstVideo ? 'first' : 'subsequent'} video)`);
-        
-        // Apply tempo variations - create different rhythmic feels
-        const tempoModes = ['steady', 'accelerating', 'decelerating', 'syncopated', 'polyrhythmic'];
-        const selectedTempo = tempoModes[Math.floor(Math.random() * tempoModes.length)];
-        console.log('🎵 Applying rhythmic mode:', selectedTempo);
-        
-        baseSegments.forEach((segment, index) => {
-          // Base scaling
-          const scaleFactor = TARGET_DURATION_FRAMES / 150;
-          let baseFrom = segment.from * scaleFactor;
-          let baseTo = segment.to * scaleFactor;
-          let baseRepeat = segment.repeat;
-          
-          // Apply tempo-based modifications
-          switch (selectedTempo) {
-            case 'accelerating':
-              // Segments get shorter and faster over time
-              const accelFactor = 1 - (index / baseSegments.length) * 0.7; // 30% to 100% speed
-              baseFrom *= accelFactor;
-              baseTo *= accelFactor;
-              baseRepeat = Math.max(1, Math.floor(baseRepeat * (1 + index * 0.3)));
-              break;
+      // Prepare audio volume (default 0.5)
+      const audioVolume = 0.5;
+      const settings = { width: 640, height: 480 };
+      const mimeType = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
               
-            case 'decelerating':
-              // Segments get longer and slower over time
-              const decelFactor = 1 + (index / baseSegments.length) * 0.8; // 100% to 180% length
-              baseFrom *= decelFactor;
-              baseTo *= decelFactor;
-              baseRepeat = Math.max(1, Math.floor(baseRepeat * (1 - index * 0.2)));
-              break;
-              
-            case 'syncopated':
-              // Add rhythmic offsets and emphasis
-              const offset = (index % 3) * 2; // Stagger segments
-              baseFrom += offset;
-              baseTo += offset;
-              baseRepeat += (index % 2) * 4; // Emphasize every other segment
-              break;
-              
-            case 'polyrhythmic':
-              // Create overlapping patterns
-              const polyFactor = [1, 1.5, 0.75, 2, 0.5][index % 5];
-              baseFrom *= polyFactor;
-              baseTo *= polyFactor;
-              baseRepeat = Math.max(1, Math.floor(baseRepeat * polyFactor));
-              break;
-              
-            default: // steady
-              // Keep original timing but add micro-variations
-              const microVariation = 1 + (Math.random() - 0.5) * 0.1; // ±5% variation
-              baseFrom *= microVariation;
-              baseTo *= microVariation;
-              break;
-          }
+      // Build the chunks array exactly like Studio does in Rendering.tsx
+      const processedChunks = segments.flatMap((s) =>
+        Array(s.repeat)
+          .fill(null)
+          .flatMap(() =>
+            chunks.slice(s.from, s.to)
+          )
+      );
+
+      logToFile('🎭 Built chunks array', {
+        originalChunks: chunks.length,
+        processedChunks: processedChunks.length,
+        segments: segments.map(s => ({
+          from: s.from,
+          to: s.to,
+          repeat: s.repeat,
+          chunkCount: (s.to - s.from) * s.repeat,
+          audio: s.audio ? 'configured' : 'missing'
+        }))
+      });
           
-          // Apply frame offset to the final segment positions
-          baseFrom += frameOffset;
-          baseTo += frameOffset;
-          
-          // Ensure segments are valid and within bounds
-          baseFrom = Math.max(0, Math.floor(baseFrom));
-          baseTo = Math.min(TARGET_DURATION_FRAMES - 1, Math.floor(baseTo));
-          
-          if (baseFrom < baseTo) {
-            adaptedSegments.push({
-              name: `${selectedTempo}_segment_${index}`,
-              from: baseFrom,
-              to: baseTo,
-              repeat: Math.max(1, baseRepeat),
-              rhythmicMode: selectedTempo,
-              // Enhanced audio configuration with rhythmic awareness
-              audio: Math.random() > 0.6 ? { // 40% chance of audio effects per segment
-                type: ['sine', 'noise', 'sample'][Math.floor(Math.random() * 3)] as 'sine' | 'noise' | 'sample',
-                frequency: selectedTempo === 'accelerating' ? 400 + index * 50 : 
-                          selectedTempo === 'decelerating' ? 600 - index * 30 :
-                          200 + Math.random() * 600,
-                volume: selectedTempo === 'syncopated' && index % 2 ? 0.8 : 0.3 + Math.random() * 0.4,
-                noiseType: ['white', 'pink', 'brown'][Math.floor(Math.random() * 3)] as 'white' | 'pink' | 'brown',
-                sampleUrl: rawAudio.processedUrl
-              } : undefined
-            });
-          }
-        });
-        
-        // Add rhythmic fill segments for more complex patterns
-        if (Math.random() < 0.6) { // 60% chance of adding fills
-          const fillCount = Math.floor(Math.random() * 4) + 2; // 2-5 fills
-          console.log('🥁 Adding', fillCount, 'rhythmic fill segments');
-          
-          for (let i = 0; i < fillCount; i++) {
-            const fillStart = Math.random() * (TARGET_DURATION_FRAMES - 30);
-            const fillDuration = 5 + Math.random() * 15; // 5-20 frame fills
-            const fillRepeats = 2 + Math.floor(Math.random() * 8); // 2-10 repeats
-            
-            adaptedSegments.push({
-              name: `rhythmic_fill_${i}`,
-              from: Math.floor(fillStart + frameOffset),
-              to: Math.floor(fillStart + fillDuration + frameOffset),
-              repeat: fillRepeats,
-              rhythmicMode: 'fill',
-              audio: Math.random() > 0.5 ? {
-                type: 'noise' as const,
-                frequency: 800 + Math.random() * 400,
-                volume: 0.2 + Math.random() * 0.3,
-                noiseType: 'white' as const,
-                sampleUrl: rawAudio.processedUrl
-              } : undefined
-            });
-          }
-        }
-        
-        // Sort by start time and remove overlaps
-        adaptedSegments.sort((a, b) => a.from - b.from);
-        
-        return adaptedSegments;
-      };
-      
-      const adaptedSegments = createRhythmicSegments(preset.segments);
-
-      console.log('🎭 Created supermosh segments:', adaptedSegments.length, 'segments with', videoSources.length, 'video sources for moshing');
-
-      // ACTUAL SUPERMOSH PROCESSING INTEGRATION
-      try {
-        console.log('🎭 Starting 30-second mixed supermosh processing...');
-
-        // Apply SUPERMOSH ALGORITHM with multi-video mixing
-        console.log('🎭 Applying supermosh algorithm with', videoSources.length, 'video sources');
-
-        // Normalize all video sources to the same dimensions (use most common size)
-        const dimensionCounts = new Map();
-        videoSources.forEach(source => {
-          const key = `${source.width}x${source.height}`;
-          dimensionCounts.set(key, (dimensionCounts.get(key) || 0) + 1);
-        });
-        
-        const [commonDimensions] = [...dimensionCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-        const [targetWidth, targetHeight] = commonDimensions.split('x').map(Number);
-        
-        console.log('🎭 Target dimensions for moshing:', targetWidth, 'x', targetHeight);
-
-        // Apply the ACTUAL SUPERMOSH ALGORITHM: segments define chunk reordering/repeating
-        const moshedChunks: any[] = [];
-        
-        console.log('🎭 Applying', adaptedSegments.length, 'supermosh segments');
-        
-        // This is the CORE SUPERMOSH ALGORITHM - segments define how chunks are reordered and repeated
-        for (const segment of adaptedSegments) {
-          // Select which video source to use for this segment (rotate through available videos)
-          const sourceIndex = Math.floor(Math.random() * videoSources.length);
-          const selectedSource = videoSources[sourceIndex];
-          
-          console.log(`🎭 Segment: from=${segment.from} to=${segment.to} repeat=${segment.repeat} source=${selectedSource.video.id.slice(-6)}`);
-          
-          // Calculate actual frame range for this segment (map to available frames)
-          const maxFrames = selectedSource.chunks.length;
-          const segmentStart = Math.floor((segment.from / 900) * maxFrames);
-          const segmentEnd = Math.min(Math.floor((segment.to / 900) * maxFrames), maxFrames - 1);
-          
-          // Extract the chunk sequence for this segment
-          const segmentChunks = selectedSource.chunks.slice(segmentStart, segmentEnd);
-          
-          // REPEAT THE CHUNKS - this creates the stuttering/moshing effect
-          for (let repeat = 0; repeat < segment.repeat; repeat++) {
-            moshedChunks.push(...segmentChunks);
-          }
-          
-          console.log(`🎭 Added ${segmentChunks.length} chunks × ${segment.repeat} repeats = ${segmentChunks.length * segment.repeat} total chunks`);
-        }
-        
-        console.log('🎭 Supermosh algorithm complete:', moshedChunks.length, 'total moshed chunks created');
-
-        // Trim to exactly 30 seconds (900 frames) if longer
-        const finalChunks = moshedChunks.slice(0, TARGET_DURATION_FRAMES);
-
-        console.log('🎭 Final moshed chunks:', finalChunks.length, 'frames (~' + (finalChunks.length / 30).toFixed(1) + 's)');
-
-        if (finalChunks.length === 0) {
-          throw new Error('No chunks created from video processing');
-        }
-
-        // Use the target dimensions for rendering
-        const renderSettings = {
-          width: targetWidth,
-          height: targetHeight,
-        };
-
-                // Decide if we should chop the audio to match video moshing (80% chance)
-        const shouldChopAudio = Math.random() < 0.8;
-        console.log('🎭 Audio chopping decision:', shouldChopAudio ? 'YES - audio will follow video stuttering/moshing' : 'NO - audio plays normally');
-
-        // Record the moshed video using primary video's config
-        const mimeType = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
-        
-        let moshedVideoUrl: string;
-        
-        let actuallyChoppedAudio = false;
-        
-        try {
-          if (shouldChopAudio) {
-            // Try recordWithAudio first, but fall back to video-only if it fails
-            console.log('🎵 Attempting synchronized audio chopping...');
-            
-            try {
-              // Create segments that match our moshing pattern for audio sync
-              const audioSyncSegments = adaptedSegments.map(segment => ({
-                ...segment,
-                audio: {
-                  type: 'sample' as const,
-                  sampleUrl: rawAudio.processedUrl,
-                  volume: 0.6 + Math.random() * 0.4, // 0.6-1.0 volume
-                }
-              }));
-
-              moshedVideoUrl = await recordWithAudio(
-                finalChunks,
-                videoSources[0].config,
-                mimeType,
-                renderSettings,
-                audioSyncSegments,
-                0.8, // Audio volume
-                ffmpeg,
-                (progress: number) => {
-                  console.log('🎭 Moshing with audio progress:', Math.round(progress * 100) + '%');
-                }
-              );
-              
-              console.log('🎵 Audio chopping successful!');
-              actuallyChoppedAudio = true;
-            } catch (audioError) {
-              console.warn('⚠️ Audio chopping failed, falling back to video-only:', audioError);
-              
-              // Fall back to video-only recording
-              moshedVideoUrl = await record(
-                finalChunks,
-                videoSources[0].config,
-                mimeType,
-                renderSettings,
-                (progress: number) => {
-                  console.log('🎭 Moshing progress (fallback):', Math.round(progress * 100) + '%');
-                }
-              );
-            }
-          } else {
-            // Record video only, audio will play separately
-            moshedVideoUrl = await record(
-              finalChunks,
-              videoSources[0].config,
-              mimeType,
-              renderSettings,
-              (progress: number) => {
-                console.log('🎭 Moshing progress:', Math.round(progress * 100) + '%');
-              }
-            );
-          }
-        } catch (recordingError) {
-          console.error('🎭 All video recording methods failed, using simplified approach:', recordingError);
-          
-          // Final fallback: use single video source without mixing
-          console.log('🎭 Fallback: Using single video source without multi-video mixing');
-          const singleVideoChunks = videoSources[0].chunks.slice(0, Math.min(900, videoSources[0].chunks.length));
-          
-          moshedVideoUrl = await record(
-            singleVideoChunks,
-            videoSources[0].config,
+      // Call recordWithAudio as in Studio
+      const moshedVideoUrl = await recordWithAudio(
+        processedChunks, // Pass the properly built chunks array
+        videoConfig,
             mimeType,
-            renderSettings,
+        settings,
+        segments,
+        audioVolume,
+        ffmpeg,
             (progress: number) => {
-              console.log('🎭 Moshing progress (single video fallback):', Math.round(progress * 100) + '%');
-            }
-          );
+          const progressPercent = Math.round(progress * 100);
+          logToFile('🎭 Moshing progress', {
+            progress: progressPercent,
+            timestamp: performance.now()
+          });
         }
-
-        console.log('🎭 Moshed video created:', moshedVideoUrl);
+          );
 
         const processingTime = performance.now() - startTime;
-        
-        // Return the moshed video
         const moshedVideo: ProcessedVideo = {
           ...rawVideo,
-          id: `moshed-30s-${Date.now()}-${rawVideo.originalId}`,
+        id: `moshed-supermosh-${Date.now()}-${rawVideo.originalId}`,
           processedUrl: moshedVideoUrl,
           moshingData: {
-            preset: preset.name + (actuallyChoppedAudio ? ' + Audio Chop' : '') + ` (${videoSources.length} sources mixed)`,
-            segments: adaptedSegments,
+          preset: 'supermosh',
+          segments,
             processingTime,
-            audioIncluded: actuallyChoppedAudio
+          audioIncluded: true
           }
         };
-
-        console.log('🎭 30-second mosh processing complete:', {
-          preset: preset.name,
+      logToFile('🎭 Supermosh processing complete', {
           processingTime: processingTime.toFixed(2) + 'ms',
-          segmentsWithAudio: adaptedSegments.filter(s => s.audio).length,
-          totalSegments: adaptedSegments.length,
-          videoSourcesUsed: videoSources.length,
-          finalChunks: finalChunks.length,
-          finalDuration: (finalChunks.length / 30).toFixed(1) + 's'
+        finalDuration: (TARGET_DURATION_FRAMES / 30).toFixed(1) + 's',
+        segmentsCount: segments.length,
+        audioConfigured: segments.some(s => s.audio)
         });
-
         return moshedVideo;
-
-      } catch (moshError) {
-        console.error('🎭 Supermosh processing failed, skipping video:', moshError);
-        
-        // Don't create fallback - throw error to skip this video
-        throw new Error('Moshing failed - skipping video');
-      }
-
     } catch (error) {
-      console.error('🎭 Mosh processing failed:', error);
-      // Don't create fallback - throw error to skip this video
+      logToFile('🎭 Supermosh processing failed', {
+        error: error instanceof Error ? error.message : String(error),
+        videoId: rawVideo.id,
+        audioId: rawAudio.id
+      });
       throw new Error('Moshing failed - skipping video');
     }
   };
@@ -877,21 +532,27 @@ export const ForeverMosh = () => {
     if (processingQueue.length === 0) return;
 
     const { video, audio, preset } = processingQueue[0];
-    console.log('🎭 Processing queue item:', { video: video.id, audio: audio.id });
+    logToFile('🎭 Processing queue item', { 
+      video: video.id, 
+      audio: audio.id,
+      preset,
+      queueLength: processingQueue.length,
+      timestamp: performance.now()
+    });
 
     try {
-      // Add timeout to prevent hanging
+      // Add timeout to prevent hanging (increased to 10 minutes for complex processing)
       const processedVideo = await Promise.race([
         processMoshPair(video, audio),
         new Promise<ProcessedVideo>((_, reject) => 
-          setTimeout(() => reject(new Error('Processing timeout after 5 minutes')), 5 * 60 * 1000)
+          setTimeout(() => reject(new Error('Processing timeout after 10 minutes')), 10 * 60 * 1000)
         )
       ]);
       
       // Check if this is a fallback video and skip it
       if (processedVideo.moshingData?.preset?.includes('fallback') || 
           processedVideo.id?.includes('fallback')) {
-        console.log('🎭 Skipping fallback video:', processedVideo.id);
+        logToFile('🎭 Skipping fallback video', { processedVideoId: processedVideo.id });
         // Remove from processing queue without adding to video queue
         setProcessingQueue(prev => prev.slice(1));
         setStats(prev => ({
@@ -902,13 +563,28 @@ export const ForeverMosh = () => {
       }
       
       // Add to final video queue
-      setVideoQueue(prev => [...prev, processedVideo]);
+      setVideoQueue(prev => {
+        const newQueue = [...prev, processedVideo];
+        logToFile('🎭 Video queue updated', {
+          previousLength: prev.length,
+          newLength: newQueue.length,
+          addedVideo: processedVideo.id,
+          queueIds: newQueue.map(v => v.id),
+          audioIncluded: processedVideo.moshingData?.audioIncluded
+        });
+        return newQueue;
+      });
       
       // Only add audio to queue if it wasn't chopped into the video
       if (!processedVideo.moshingData?.audioIncluded) {
         setAudioQueue(prev => [...prev, audio]);
+        logToFile('🎵 Audio added to separate queue', { audioId: audio.id });
       } else {
-        console.log('🎵 Audio was chopped into video, not adding to separate audio queue');
+        logToFile('🎵 Audio was chopped into video', { 
+          audioId: audio.id,
+          videoId: processedVideo.id,
+          audioIncluded: true
+        });
       }
       
       // Remove from processing queue
@@ -924,25 +600,39 @@ export const ForeverMosh = () => {
         processingCount: prev.processingCount - 1
       }));
 
-      console.log('📊 Stats updated after processing:', {
+      logToFile('📊 Stats updated after processing', {
         videosProcessed: stats.videosProcessed + 1,
         queueLength: videoQueue.length + 1,
-        audioIncluded: processedVideo.moshingData?.audioIncluded
+        audioIncluded: processedVideo.moshingData?.audioIncluded,
+        processingTime: processedVideo.moshingData?.processingTime
       });
 
-      console.log('✅ Processed and queued video:', processedVideo.id, 'with audio:', audio.id);
+      logToFile('✅ Processed and queued video', { 
+        processedVideoId: processedVideo.id, 
+        audioId: audio.id,
+        preset: processedVideo.moshingData?.preset
+      });
 
     } catch (error) {
-      console.error('❌ Processing failed:', error);
+      logToFile('❌ Processing failed', {
+        error: error instanceof Error ? error.message : String(error),
+        videoId: video.id,
+        audioId: audio.id,
+        preset
+      });
       
-      // Don't create fallback video - just remove from processing queue
-      console.log('🎭 Skipping failed video - no fallback created');
+      // Discard failed video completely - no fallback created
+      logToFile('🎭 Discarding failed video', { 
+        reason: 'moshing failed, removing from queue',
+        videoId: video.id
+      });
       
-      // Remove failed item from queue
+      // Remove failed item from queue and update stats
       setProcessingQueue(prev => prev.slice(1));
       setStats(prev => ({ 
         ...prev, 
-        processingCount: prev.processingCount - 1
+        processingCount: prev.processingCount - 1,
+        failedProcessing: (prev.failedProcessing || 0) + 1
       }));
     }
   };
@@ -951,10 +641,10 @@ export const ForeverMosh = () => {
   useEffect(() => {
     const processInterval = setInterval(() => {
       // Only process if we have both raw video and audio, and processing queue isn't full
-      if (rawVideoQueue.length > 0 && rawAudioQueue.length > 0 && processingQueue.length < 3) {
+      if (rawVideoQueue.length > 0 && rawAudioQueue.length > 0 && processingQueue.length < 1) {
         const rawVideo = rawVideoQueue[0];
         const rawAudio = rawAudioQueue[0];
-        const preset = FOREVER_MOSH_PRESETS[Math.floor(Math.random() * FOREVER_MOSH_PRESETS.length)];
+        const preset = pickRandomPreset();
 
         // Add to processing queue
         setProcessingQueue(prev => [...prev, { video: rawVideo, audio: rawAudio, preset }]);
@@ -988,7 +678,7 @@ export const ForeverMosh = () => {
   // Fetch and add to raw queues (modified from original functions)
   const fetchAndProcessVideos = async () => {
     try {
-      console.log('📹 Fetching raw video from Pexels...');
+      logToFile('📹 Fetching raw video from Pexels', { timestamp: performance.now() });
       
       if (!PEXELS_PROXY_BASE) {
         console.warn('Pexels proxy base not configured. Skipping video fetch.');
@@ -1002,7 +692,7 @@ export const ForeverMosh = () => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Pexels proxy error response:', {
+        logToFile('❌ Pexels proxy error response', {
           status: response.status,
           statusText: response.statusText,
           body: errorText
@@ -1013,6 +703,10 @@ export const ForeverMosh = () => {
       const pexelsData: PexelsResponse = await response.json();
       
       if (pexelsData.videos.length === 0) {
+        logToFile('❌ No videos found in Pexels response', { 
+          totalResults: pexelsData.total_results,
+          page: pexelsData.page
+        });
         throw new Error('No videos found');
       }
 
@@ -1042,6 +736,14 @@ export const ForeverMosh = () => {
       setRawVideoQueue(prev => [...prev, rawVideo]);
       setStats(prev => ({ ...prev, rawVideoCount: prev.rawVideoCount + 1 }));
       
+      logToFile('📹 Video added to raw queue', {
+        videoId: rawVideo.id,
+        originalId: randomVideo.id,
+        duration: randomVideo.duration,
+        quality: videoFile.quality,
+        queueLength: rawVideoQueue.length + 1
+      });
+      
     } catch (err) {
       console.error('Error fetching raw video:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -1050,7 +752,7 @@ export const ForeverMosh = () => {
 
   const fetchAndProcessAudio = async () => {
     try {
-      console.log('🎵 Fetching raw audio from Freesound...');
+      logToFile('🎵 Fetching raw audio from Freesound', { timestamp: performance.now() });
       
       if (!FREESOUND_PROXY_BASE) {
         console.warn('Freesound proxy base not configured. Skipping audio fetch.');
@@ -1136,6 +838,15 @@ export const ForeverMosh = () => {
       setRawAudioQueue(prev => [...prev, rawAudio]);
       setStats(prev => ({ ...prev, rawAudioCount: prev.rawAudioCount + 1 }));
       
+      logToFile('🎵 Audio added to raw queue', {
+        audioId: rawAudio.id,
+        originalId: randomSound.id,
+        duration: randomSound.duration,
+        samplerate: randomSound.samplerate,
+        channels: randomSound.channels,
+        queueLength: rawAudioQueue.length + 1
+      });
+      
     } catch (err) {
       console.error('Error fetching raw audio:', err);
     }
@@ -1147,21 +858,27 @@ export const ForeverMosh = () => {
 
     const fetchInterval = setInterval(() => {
       const totalVideosInPipeline = videoQueue.length + processingQueue.length + rawVideoQueue.length;
-      console.log('🔄 Periodic fetch check - Total videos in pipeline:', totalVideosInPipeline, 'Ready:', videoQueue.length, 'Processing:', processingQueue.length, 'Raw:', rawVideoQueue.length);
+      logToFile('🔄 Periodic fetch check', {
+        totalVideosInPipeline,
+        readyQueue: videoQueue.length,
+        processingQueue: processingQueue.length,
+        rawVideoQueue: rawVideoQueue.length,
+        rawAudioQueue: rawAudioQueue.length
+      });
       
-      // Maintain a healthy pipeline of 8-10 videos total
-      if (totalVideosInPipeline < 8) {
-        console.log('📹 Pipeline running low, fetching more raw videos');
+      // Maintain a healthy pipeline of 4-6 videos total (reduced for efficiency)
+      if (totalVideosInPipeline < 4) {
+        logToFile('📹 Pipeline running low, fetching more raw videos', { totalVideosInPipeline });
         fetchAndProcessVideos();
       }
       
       if (rawAudioQueue.length + processingQueue.length < 6) {
-        console.log('🎵 Fetching more raw audio');
+        logToFile('🎵 Fetching more raw audio', { rawAudioQueue: rawAudioQueue.length });
         fetchAndProcessAudio();
       }
       
-      if (totalVideosInPipeline >= 10) {
-        console.log('✅ Video pipeline is full, skipping video fetch');
+      if (totalVideosInPipeline >= 6) {
+        logToFile('✅ Video pipeline is full, skipping video fetch', { totalVideosInPipeline });
       }
     }, 30000); // Check every 30 seconds (more frequent)
 
@@ -1388,6 +1105,14 @@ export const ForeverMosh = () => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Test logging system on mount
+  useEffect(() => {
+    logToFile('🚀 ForeverMosh component mounted', { 
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent 
+    });
+  }, []);
+
   if (!isStarted) {
     const hasEnoughContent = videoQueue.length >= MIN_PRELOAD_VIDEOS;
     const isCurrentlyPreloading = isPreloading && !error;
@@ -1396,8 +1121,8 @@ export const ForeverMosh = () => {
       <main className="ForeverMosh">
         <div className="forever-start">
           <div className="start-content">
-            <h1>🎬🎵 Forever Mosh</h1>
-                          <p>Endless moshing powered by <a href="https://github.com/ninofiliu/supermosh" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Supermosh</a></p>
+            <h1 className="bitcount-grid-double" style={{ fontSize: '6em' }}>evermosh</h1>
+                          <p>Endless moshing powered by <a href="https://github.com/ninofiliu/supermosh" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Supermosh</a>, <a href="https://www.pexels.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Pexels</a>, and <a href="https://freesound.org/" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Freesound</a></p>    
             
             {/* Pre-loading status */}
             {isCurrentlyPreloading && (
@@ -1528,6 +1253,24 @@ export const ForeverMosh = () => {
                 ❌ {error}
               </div>
             )}
+            
+            {/* Download logs button - always visible */}
+            <div style={{ marginTop: '1rem' }}>
+              <button 
+                onClick={downloadLogFile}
+                style={{ 
+                  background: 'var(--accent-magenta)', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  borderRadius: '4px'
+                }}
+              >
+                📊 Download Logs ({allLogs.length} entries)
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -1541,6 +1284,24 @@ export const ForeverMosh = () => {
           <div className="loading-spinner"></div>
           <h2>🎬🎵 Starting Forever Mosh...</h2>
           <p>Fetching videos from Pexels and audio from Freesound</p>
+          
+          {/* Download logs button - always visible */}
+          <div style={{ marginTop: '2rem' }}>
+            <button 
+              onClick={downloadLogFile}
+              style={{ 
+                background: 'var(--accent-magenta)', 
+                color: 'white', 
+                border: 'none', 
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                borderRadius: '4px'
+              }}
+            >
+              📊 Download Logs ({allLogs.length} entries)
+            </button>
+          </div>
         </div>
       </main>
     );
@@ -1581,6 +1342,25 @@ export const ForeverMosh = () => {
                 <span className="stat-value">{stats.rawVideoCount}v + {stats.rawAudioCount}a</span>
               </div>
             </div>
+            
+            <div className="stats-row">
+              <div className="stat-item">
+                <button 
+                  onClick={downloadLogFile}
+                  style={{ 
+                    background: 'var(--accent-magenta)', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    borderRadius: '4px'
+                  }}
+                                  >
+                    📊 Download Logs ({allLogs.length} entries)
+                  </button>
+              </div>
+            </div>
 
             {currentVideo && (
               <div className="current-content">
@@ -1589,7 +1369,7 @@ export const ForeverMosh = () => {
                   currentVideo.id
                 }</div>
                 {currentVideo.moshingData && (
-                  <div>🎭 Preset: {currentVideo.moshingData.preset} ({currentVideo.moshingData.segments.length} segments, {currentVideo.moshingData.processingTime.toFixed(0)}ms)</div>
+                  <div>🎭 Preset: {currentVideo.moshingData.preset} ({currentVideo.moshingData.processingTime.toFixed(0)}ms)</div>
                 )}
                 {currentAudio && currentAudio.freesoundData && (
                   <div>🎵 Audio: "{currentAudio.freesoundData.name}" by {currentAudio.freesoundData.username} ({currentAudio.freesoundData.duration.toFixed(1)}s) - {currentAudio.freesoundData.license}</div>

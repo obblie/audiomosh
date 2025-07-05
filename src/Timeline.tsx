@@ -448,6 +448,18 @@ export const Timeline = ({
         { from: 100, to: 120, repeat: 1 }, // Final longer section (single play)
         { from: 125, to: 127, repeat: 25 } // Final micro stutter
       ]
+    },
+    {
+      name: "Blends",
+      segments: [
+        { from: 0, to: 39, repeat: 1 },
+        { from: 38, to: 44, repeat: 39 },
+        { from: 4, to: 50, repeat: 1 },
+        { from: 48, to: 55, repeat: 40 },
+        { from: 53, to: 57, repeat: 25 },
+        { from: 90, to: 120, repeat: 1 },
+        { from: 118, to: 122, repeat: 54 }
+      ]
     }
   ]);
   const [selectedPreset, setSelectedPreset] = useState<string>("");

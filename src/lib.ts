@@ -721,7 +721,11 @@ export const record = async (
         return;
       }
       
-      onProgress(i / chunks.length);
+      // Only report progress every 10 frames to prevent oscillation
+      if (i % 10 === 0) {
+        onProgress(i / chunks.length);
+      }
+      
       decoder.decode(chunks[i]);
       i++;
       
