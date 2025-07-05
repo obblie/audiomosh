@@ -98,6 +98,7 @@ interface ProcessedVideo {
   originalId: string;
   originalUrl: string;
   processedUrl: string;
+  blob?: Blob; // Cache for downloaded video blobs
   timestamp: Date;
   pexelsData?: PexelsVideo;
   moshingData?: {
@@ -120,6 +121,11 @@ const MOSH_PRESETS = [
 // Utility to pick a random preset
 function pickRandomPreset() {
   return MOSH_PRESETS[Math.floor(Math.random() * MOSH_PRESETS.length)];
+}
+
+// Use Blends preset specifically for ForeverMosh
+function getBlendsPreset() {
+  return { name: "Blends", type: "blends" };
 }
 
 // Efficient datamosh implementations - focus on Classic Melt and Stutter
@@ -233,8 +239,10 @@ function moshBlend(chunks: EncodedVideoChunk[]): EncodedVideoChunk[] {
   return chunks;
 }
 
-// Add logging utility at the top of the file
+// Global log storage with persistent access
 let allLogs: string[] = [];
+let lastLogSave = Date.now();
+const LOG_SAVE_INTERVAL = 30000; // Save logs every 30 seconds
 
 const logToFile = (message: string, data?: any) => {
   const timestamp = new Date().toISOString();
@@ -246,6 +254,49 @@ const logToFile = (message: string, data?: any) => {
   // Also log to console for debugging
   console.log(`[${timestamp}] ${message}`, data);
   console.log(`📊 Total logs accumulated: ${allLogs.length}`);
+  
+  // Save to localStorage for persistence
+  try {
+    localStorage.setItem('forevermosh_logs', JSON.stringify(allLogs));
+    localStorage.setItem('forevermosh_last_log', timestamp);
+  } catch (error) {
+    console.warn('Failed to save logs to localStorage:', error);
+  }
+  
+  // Periodically save to file to maintain access
+  const now = Date.now();
+  if (now - lastLogSave > LOG_SAVE_INTERVAL) {
+    saveLogsToFile();
+    lastLogSave = now;
+  }
+};
+
+const saveLogsToFile = () => {
+  if (allLogs.length === 0) {
+    console.log('No logs to save');
+    return;
+  }
+  
+  console.log(`📊 Auto-saving ${allLogs.length} log entries...`);
+  
+  // Create CSV header
+  const header = 'timestamp,message,data\n';
+  const csvContent = header + allLogs.join('');
+  
+  console.log(`📊 CSV content length: ${csvContent.length} characters`);
+  
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `forevermosh_log_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  console.log(`✅ Auto-saved ${allLogs.length} log entries`);
 };
 
 const downloadLogFile = () => {
@@ -266,7 +317,8 @@ const downloadLogFile = () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'forevermosh_complete_log.csv';
+  const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+  a.download = `forevermosh_complete_log_${timestamp}.csv`;
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
@@ -274,7 +326,71 @@ const downloadLogFile = () => {
   URL.revokeObjectURL(url);
   
   console.log(`✅ Downloaded ${allLogs.length} log entries as single file`);
+  logToFile('📊 Logs downloaded manually', { 
+    totalEntries: allLogs.length, 
+    fileSize: Math.round(csvContent.length / 1024) + 'KB',
+    timestamp: new Date().toISOString()
+  });
 };
+
+// Load existing logs from localStorage on startup
+const loadExistingLogs = () => {
+  try {
+    const savedLogs = localStorage.getItem('forevermosh_logs');
+    if (savedLogs) {
+      allLogs = JSON.parse(savedLogs);
+      console.log(`📊 Loaded ${allLogs.length} existing logs from localStorage`);
+    }
+  } catch (error) {
+    console.warn('Failed to load existing logs from localStorage:', error);
+  }
+};
+
+// Initialize logs on module load
+loadExistingLogs();
+
+// Add clear logs function
+const clearLogs = () => {
+  allLogs = [];
+  localStorage.removeItem('forevermosh_logs');
+  localStorage.removeItem('forevermosh_last_log');
+  console.log('🧹 Logs cleared');
+};
+
+// Add manual save function
+const manualSaveLogs = () => {
+  saveLogsToFile();
+};
+
+// Add log statistics function
+const getLogStats = () => {
+  const totalLogs = allLogs.length;
+  const lastLog = localStorage.getItem('forevermosh_last_log');
+  const logSize = new Blob([allLogs.join('')]).size;
+  
+  return {
+    totalLogs,
+    lastLog,
+    logSizeKB: Math.round(logSize / 1024),
+    autoSaveInterval: LOG_SAVE_INTERVAL / 1000
+  };
+};
+
+// Add page unload handler to save logs
+const handlePageUnload = () => {
+  if (allLogs.length > 0) {
+    console.log('📊 Saving logs before page unload...');
+    saveLogsToFile();
+  }
+};
+
+// Initialize logs on module load
+loadExistingLogs();
+
+// Add page unload listener
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', handlePageUnload);
+}
 
 export const ForeverMosh = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -293,6 +409,8 @@ export const ForeverMosh = () => {
   const [isFirstVideo, setIsFirstVideo] = useState(true); // Track if this is the first video
   const MIN_PRELOAD_VIDEOS = 4; // Minimum videos to preload before starting
   const [error, setError] = useState<string | null>(null);
+  const [processingProgress, setProcessingProgress] = useState(0); // Track processing progress (0-100)
+  const [isProcessing, setIsProcessing] = useState(false); // Track if currently processing
   const [stats, setStats] = useState({
     videosProcessed: 0,
     audiosProcessed: 0,
@@ -387,14 +505,16 @@ export const ForeverMosh = () => {
     rawAudio: ProcessedAudio
   ): Promise<ProcessedVideo> => {
     const startTime = performance.now();
-    console.log('🎭 Starting supermosh processing for pair:', {
+    logToFile('🎭 Starting Blends processing', {
       primaryVideo: rawVideo.id,
       audio: rawAudio.id,
       availableVideos: rawVideoQueue.length,
-      audioName: rawAudio.freesoundData?.name
+      audioName: rawAudio.freesoundData?.name,
+      timestamp: performance.now()
     });
 
     try {
+      logToFile('🎭 Step 1: Setting up FFmpeg', { timestamp: performance.now() });
       // Target variable duration between 3-7 seconds at 30 FPS = 90-210 frames
       const minDuration = 3; // 3 seconds
       const maxDuration = 7; // 7 seconds
@@ -405,71 +525,153 @@ export const ForeverMosh = () => {
       const ffmpeg = new (await import('@ffmpeg/ffmpeg')).FFmpeg();
       const { toBlobURL, fetchFile } = await import('@ffmpeg/util');
       if (!ffmpeg.loaded) {
+        logToFile('🎭 Step 2: Loading FFmpeg core', { timestamp: performance.now() });
         const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
         await ffmpeg.load({
           coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
           wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
         });
+        logToFile('🎭 Step 3: FFmpeg loaded successfully', { timestamp: performance.now() });
       }
 
-      // Download the video file
-      const videoResponse = await fetch(rawVideo.processedUrl);
-          const videoBlob = await videoResponse.blob();
-      const videoFile = new File([videoBlob], `${rawVideo.id}.mp4`, { type: 'video/mp4' });
-
-      // Extract video chunks and config
-          let videoConfig: VideoDecoderConfig | null = null;
-          const chunks = await computeChunks(
-            ffmpeg,
-            videoFile,
-        rawVideo.id,
-        640, // You may want to detect or set dynamically
-        480,
-            (config: VideoDecoderConfig) => {
-              videoConfig = config;
-            }
-          );
-      if (!videoConfig || chunks.length === 0) throw new Error('Failed to extract video chunks');
-
+      logToFile('🎭 Step 4: Building Blends preset segments', { timestamp: performance.now() });
       // Build a segment list for neverending mosh effect using the Blends preset
       const BLENDS_PRESET = [
-        { from: 0, to: 39, repeat: 1 },
-        { from: 38, to: 44, repeat: 39 },
-        { from: 4, to: 50, repeat: 1 },
-        { from: 48, to: 55, repeat: 40 },
-        { from: 53, to: 57, repeat: 25 },
-        { from: 90, to: 120, repeat: 1 },
-        { from: 118, to: 122, repeat: 54 }
+        { from: 0, to: 39, repeat: 1 },      // Keep as is (base segment)
+        { from: 38, to: 44, repeat: 8 },     // Was 39, now 8 (80% reduction)
+        { from: 4, to: 50, repeat: 1 },      // Keep as is (base segment)
+        { from: 48, to: 55, repeat: 8 },     // Was 40, now 8 (80% reduction)
+        { from: 53, to: 57, repeat: 5 },     // Was 25, now 5 (80% reduction)
+        { from: 90, to: 120, repeat: 1 },    // Keep as is (base segment)
+        { from: 118, to: 122, repeat: 11 }   // Was 54, now 11 (80% reduction)
       ];
-      // Adapt segments to the current video length
-      const segments = BLENDS_PRESET.map((seg, i) => ({
-        name: rawVideo.id,
-        from: Math.max(0, Math.min(seg.from, chunks.length - 1)),
-        to: Math.max(seg.from + 1, Math.min(seg.to, chunks.length)),
-        repeat: seg.repeat,
-        audio: {
-          type: 'sample' as const,
-          sampleUrl: rawAudio.processedUrl,
-          volume: 0.5 + 0.1 * (i % 3) // vary volume a bit for variety
-        }
-      }));
 
-      // Prepare audio volume (default 0.5)
-      const audioVolume = 0.5;
-      const settings = { width: 640, height: 480 };
-      const mimeType = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
-              
-      // Build the chunks array exactly like Studio does in Rendering.tsx
-      const processedChunks = segments.flatMap((s) =>
-        Array(s.repeat)
+      logToFile('🎭 Step 5: Gathering available videos', { 
+        availableVideosCount: [rawVideo, ...rawVideoQueue].length,
+        rawVideoQueueLength: rawVideoQueue.length,
+        timestamp: performance.now()
+      });
+      // Gather available videos: current rawVideo plus as many as possible from rawVideoQueue
+      const availableVideos = [rawVideo, ...rawVideoQueue].slice(0, BLENDS_PRESET.length);
+      // For each video, fetch its chunks (synchronously, for simplicity)
+      let chunks: EncodedVideoChunk[] = [];
+      let videoConfig: VideoDecoderConfig | null = null;
+      const videoChunksList: { id: string, chunks: EncodedVideoChunk[], config: VideoDecoderConfig | null }[] = [];
+      let mainConfig: VideoDecoderConfig | null = null;
+      
+      logToFile('🎭 Step 6: Processing videos', { 
+        videosToProcess: availableVideos.length,
+        timestamp: performance.now()
+      });
+      
+      for (let v = 0; v < availableVideos.length; v++) {
+        const vid = availableVideos[v];
+        logToFile('🎭 Step 6.' + (v + 1) + ': Processing video ' + vid.id, { 
+          videoIndex: v,
+          videoId: vid.id,
+          timestamp: performance.now()
+        });
+        
+        if (vid.id === rawVideo.id) {
+          // Use cached blob if available, otherwise download
+          logToFile('🎭 Step 6.' + (v + 1) + 'a: Processing main video', { timestamp: performance.now() });
+          let videoBlob: Blob;
+          if (rawVideo.blob) {
+            logToFile('🎭 Using cached blob for main video', { timestamp: performance.now() });
+            videoBlob = rawVideo.blob;
+          } else {
+            logToFile('🎭 Downloading main video (no cached blob)', { timestamp: performance.now() });
+            const videoResponse = await fetch(rawVideo.processedUrl);
+            videoBlob = await videoResponse.blob();
+          }
+          const videoFile = new File([videoBlob], `${rawVideo.id}.mp4`, { type: 'video/mp4' });
+          
+          logToFile('🎭 Step 6.' + (v + 1) + 'b: Computing chunks for main video', { timestamp: performance.now() });
+          chunks = await computeChunks(
+            ffmpeg,
+            videoFile,
+            rawVideo.id,
+            640,
+            480,
+            (config) => { videoConfig = config; }
+          );
+          videoChunksList.push({ id: vid.id, chunks, config: videoConfig });
+          mainConfig = videoConfig;
+          logToFile('🎭 Step 6.' + (v + 1) + 'c: Main video chunks computed', { 
+            chunkCount: chunks.length,
+            timestamp: performance.now()
+          });
+        } else {
+          // Use cached blob if available, otherwise download additional video
+          logToFile('🎭 Step 6.' + (v + 1) + 'a: Processing additional video', { timestamp: performance.now() });
+          let blob: Blob;
+          if (vid.blob) {
+            logToFile('🎭 Using cached blob for additional video', { timestamp: performance.now() });
+            blob = vid.blob;
+          } else {
+            logToFile('🎭 Downloading additional video (no cached blob)', { timestamp: performance.now() });
+            const response = await fetch(vid.processedUrl);
+            blob = await response.blob();
+          }
+          const file = new File([blob], `${vid.id}.mp4`, { type: 'video/mp4' });
+          let config: VideoDecoderConfig | null = null;
+          
+          logToFile('🎭 Step 6.' + (v + 1) + 'b: Computing chunks for additional video', { timestamp: performance.now() });
+          const vidChunks = await computeChunks(
+            ffmpeg,
+            file,
+            vid.id,
+            640,
+            480,
+            (c) => { config = c; }
+          );
+          videoChunksList.push({ id: vid.id, chunks: vidChunks, config });
+          if (!mainConfig && config) mainConfig = config;
+          logToFile('🎭 Step 6.' + (v + 1) + 'c: Additional video chunks computed', { 
+            chunkCount: vidChunks.length,
+            timestamp: performance.now()
+            });
+          }
+        }
+        
+      if (!mainConfig) throw new Error('No video config found for any video');
+      
+      logToFile('🎭 Step 7: Building segments with multiple videos', { 
+        segmentsCount: BLENDS_PRESET.length,
+        videosAvailable: videoChunksList.length,
+        timestamp: performance.now()
+      });
+      
+      // Build segments, cycling through available videos
+      const segments = BLENDS_PRESET.map((seg, i) => {
+        const vidIdx = i % videoChunksList.length;
+        const vid = videoChunksList[vidIdx];
+        const maxLen = vid.chunks.length;
+        return {
+          name: vid.id,
+          from: Math.max(0, Math.min(seg.from, maxLen - 1)),
+          to: Math.max(seg.from + 1, Math.min(seg.to, maxLen)),
+          repeat: seg.repeat,
+                audio: {
+                  type: 'sample' as const,
+                  sampleUrl: rawAudio.processedUrl,
+            volume: 0.5
+          }
+        };
+      });
+      
+      logToFile('🎭 Step 8: Building final chunks array', { timestamp: performance.now() });
+      // Build the chunks array from all segments
+      const processedChunks = segments.flatMap((s) => {
+        const vid = videoChunksList.find(v => v.id === s.name);
+        if (!vid) return [];
+        return Array(s.repeat)
           .fill(null)
-          .flatMap(() =>
-            chunks.slice(s.from, s.to)
-          )
-      );
+          .flatMap(() => vid.chunks.slice(s.from, s.to));
+      });
 
       logToFile('🎭 Built chunks array', {
-        originalChunks: chunks.length,
+        originalChunks: processedChunks.length,
         processedChunks: processedChunks.length,
         segments: segments.map(s => ({
           from: s.from,
@@ -479,51 +681,63 @@ export const ForeverMosh = () => {
           audio: s.audio ? 'configured' : 'missing'
         }))
       });
-          
+      
+      logToFile('🎭 Step 9: Starting recordWithAudio', { timestamp: performance.now() });
       // Call recordWithAudio as in Studio
       const moshedVideoUrl = await recordWithAudio(
         processedChunks, // Pass the properly built chunks array
-        videoConfig,
-            mimeType,
-        settings,
+        mainConfig,
+        MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm",
+        { width: 640, height: 480 },
         segments,
-        audioVolume,
+        0.5,
         ffmpeg,
-            (progress: number) => {
+                (progress: number) => {
           const progressPercent = Math.round(progress * 100);
+          setProcessingProgress(progressPercent);
+          setIsProcessing(true);
           logToFile('🎭 Moshing progress', {
             progress: progressPercent,
             timestamp: performance.now()
           });
         }
-          );
+      );
 
         const processingTime = performance.now() - startTime;
         const moshedVideo: ProcessedVideo = {
           ...rawVideo,
-        id: `moshed-supermosh-${Date.now()}-${rawVideo.originalId}`,
+        id: `moshed-blends-${Date.now()}-${rawVideo.originalId}`,
           processedUrl: moshedVideoUrl,
           moshingData: {
-          preset: 'supermosh',
+          preset: 'blends',
           segments,
             processingTime,
           audioIncluded: true
-          }
-        };
-      logToFile('🎭 Supermosh processing complete', {
+        }
+      };
+      
+      // Reset processing state
+      setProcessingProgress(0);
+      setIsProcessing(false);
+      
+      logToFile('🎭 Blends processing complete', {
           processingTime: processingTime.toFixed(2) + 'ms',
         finalDuration: (TARGET_DURATION_FRAMES / 30).toFixed(1) + 's',
         segmentsCount: segments.length,
         audioConfigured: segments.some(s => s.audio)
-        });
+      });
         return moshedVideo;
     } catch (error) {
-      logToFile('🎭 Supermosh processing failed', {
+      // Reset processing state on failure
+      setProcessingProgress(0);
+      setIsProcessing(false);
+      
+      logToFile('🎭 Blends processing failed', {
         error: error instanceof Error ? error.message : String(error),
         videoId: rawVideo.id,
         audioId: rawAudio.id
       });
-      throw new Error('Moshing failed - skipping video');
+      throw new Error('Blends moshing failed - skipping video');
     }
   };
 
@@ -541,7 +755,7 @@ export const ForeverMosh = () => {
     });
 
     try {
-      // Add timeout to prevent hanging (increased to 10 minutes for complex processing)
+      // Add timeout to prevent hanging (reduced to 10 minutes for faster feedback)
       const processedVideo = await Promise.race([
         processMoshPair(video, audio),
         new Promise<ProcessedVideo>((_, reject) => 
@@ -570,7 +784,10 @@ export const ForeverMosh = () => {
           newLength: newQueue.length,
           addedVideo: processedVideo.id,
           queueIds: newQueue.map(v => v.id),
-          audioIncluded: processedVideo.moshingData?.audioIncluded
+          audioIncluded: processedVideo.moshingData?.audioIncluded,
+          processingTime: processedVideo.moshingData?.processingTime,
+          preset: processedVideo.moshingData?.preset,
+          videoDuration: processedVideo.pexelsData?.duration
         });
         return newQueue;
       });
@@ -610,7 +827,10 @@ export const ForeverMosh = () => {
       logToFile('✅ Processed and queued video', { 
         processedVideoId: processedVideo.id, 
         audioId: audio.id,
-        preset: processedVideo.moshingData?.preset
+        preset: processedVideo.moshingData?.preset,
+        processingTime: processedVideo.moshingData?.processingTime,
+        queueLength: videoQueue.length + 1,
+        totalVideosProcessed: stats.videosProcessed + 1
       });
 
     } catch (error) {
@@ -644,7 +864,7 @@ export const ForeverMosh = () => {
       if (rawVideoQueue.length > 0 && rawAudioQueue.length > 0 && processingQueue.length < 1) {
         const rawVideo = rawVideoQueue[0];
         const rawAudio = rawAudioQueue[0];
-        const preset = pickRandomPreset();
+        const preset = getBlendsPreset(); // Use Blends preset specifically
 
         // Add to processing queue
         setProcessingQueue(prev => [...prev, { video: rawVideo, audio: rawAudio, preset }]);
@@ -662,8 +882,16 @@ export const ForeverMosh = () => {
         }));
 
         console.log('🎭 Added to processing queue:', { video: rawVideo.id, audio: rawAudio.id });
+        logToFile('🎭 Added to processing queue', { 
+          video: rawVideo.id, 
+          audio: rawAudio.id,
+          preset,
+          rawVideoQueueLength: rawVideoQueue.length - 1,
+          rawAudioQueueLength: rawAudioQueue.length - 1,
+          processingQueueLength: processingQueue.length + 1
+        });
       }
-    }, 2000); // Check every 2 seconds
+    }, 60000); // Check every 60 seconds
 
     return () => clearInterval(processInterval);
   }, [rawVideoQueue, rawAudioQueue, processingQueue]);
@@ -729,6 +957,7 @@ export const ForeverMosh = () => {
         originalId: randomVideo.id.toString(),
         originalUrl: videoFile.link,
         processedUrl: blobUrl,
+        blob: videoBlob, // Cache the blob to avoid re-downloading
         timestamp: new Date(),
         pexelsData: randomVideo
       };
@@ -741,7 +970,9 @@ export const ForeverMosh = () => {
         originalId: randomVideo.id,
         duration: randomVideo.duration,
         quality: videoFile.quality,
-        queueLength: rawVideoQueue.length + 1
+        queueLength: rawVideoQueue.length + 1,
+        blobCached: !!rawVideo.blob,
+        blobSize: rawVideo.blob ? rawVideo.blob.size : 0
       });
       
     } catch (err) {
@@ -1265,10 +1496,40 @@ export const ForeverMosh = () => {
                   padding: '8px 16px',
                   cursor: 'pointer',
                   fontSize: '0.9rem',
-                  borderRadius: '4px'
+                  borderRadius: '4px',
+                  marginRight: '8px'
                 }}
               >
                 📊 Download Logs ({allLogs.length} entries)
+              </button>
+              <button 
+                onClick={manualSaveLogs}
+                style={{ 
+                  background: '#4ecdc4', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  borderRadius: '4px',
+                  marginRight: '8px'
+                }}
+              >
+                💾 Save Now
+              </button>
+              <button 
+                onClick={clearLogs}
+                style={{ 
+                  background: '#dc3545', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  borderRadius: '4px'
+                }}
+              >
+                🧹 Clear Logs
               </button>
             </div>
           </div>
@@ -1285,6 +1546,33 @@ export const ForeverMosh = () => {
           <h2>🎬🎵 Starting Forever Mosh...</h2>
           <p>Fetching videos from Pexels and audio from Freesound</p>
           
+          {/* Preloading Progress */}
+          <div style={{ 
+            width: '300px', 
+            margin: '1rem auto',
+            textAlign: 'center'
+          }}>
+            <div style={{ 
+              width: '100%', 
+              height: '12px', 
+              backgroundColor: 'rgba(255,255,255,0.2)', 
+              borderRadius: '6px',
+              overflow: 'hidden',
+              marginBottom: '8px'
+            }}>
+              <div style={{
+                width: `${Math.min((videoQueue.length / MIN_PRELOAD_VIDEOS) * 100, 100)}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #4ecdc4, #44a08d)',
+                transition: 'width 0.5s ease',
+                borderRadius: '6px'
+              }}></div>
+            </div>
+            <div style={{ fontSize: '0.9rem', color: '#4ecdc4' }}>
+              Preloading: {videoQueue.length}/{MIN_PRELOAD_VIDEOS} videos
+            </div>
+          </div>
+          
           {/* Download logs button - always visible */}
           <div style={{ marginTop: '2rem' }}>
             <button 
@@ -1296,10 +1584,40 @@ export const ForeverMosh = () => {
                 padding: '8px 16px',
                 cursor: 'pointer',
                 fontSize: '0.9rem',
-                borderRadius: '4px'
+                borderRadius: '4px',
+                marginRight: '8px'
               }}
             >
               📊 Download Logs ({allLogs.length} entries)
+            </button>
+            <button 
+              onClick={manualSaveLogs}
+              style={{ 
+                background: '#4ecdc4', 
+                color: 'white', 
+                border: 'none', 
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                borderRadius: '4px',
+                marginRight: '8px'
+              }}
+            >
+              💾 Save Now
+            </button>
+            <button 
+              onClick={clearLogs}
+              style={{ 
+                background: '#dc3545', 
+                color: 'white', 
+                border: 'none', 
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                borderRadius: '4px'
+              }}
+            >
+              🧹 Clear Logs
             </button>
           </div>
         </div>
@@ -1345,6 +1663,46 @@ export const ForeverMosh = () => {
             
             <div className="stats-row">
               <div className="stat-item">
+                <span className="stat-label">📊 Logs:</span>
+                <span className="stat-value">{getLogStats().totalLogs} entries ({getLogStats().logSizeKB}KB)</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">💾 Auto-save:</span>
+                <span className="stat-value">{getLogStats().autoSaveInterval}s</span>
+              </div>
+            </div>
+            
+            {/* Processing Progress Bar */}
+            {isProcessing && (
+              <div className="stats-row" style={{ marginTop: '8px' }}>
+                <div className="stat-item" style={{ width: '100%' }}>
+                  <span className="stat-label">🎭 Processing Progress:</span>
+                  <div style={{ 
+                    width: '100%', 
+                    height: '8px', 
+                    backgroundColor: 'rgba(255,255,255,0.2)', 
+                    borderRadius: '4px',
+                    marginTop: '4px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${processingProgress}%`,
+                      height: '100%',
+                      backgroundColor: 'linear-gradient(90deg, #4ecdc4, #44a08d)',
+                      background: 'linear-gradient(90deg, #4ecdc4, #44a08d)',
+                      transition: 'width 0.3s ease',
+                      borderRadius: '4px'
+                    }}></div>
+                  </div>
+                  <span className="stat-value" style={{ fontSize: '0.8rem', marginTop: '2px' }}>
+                    {processingProgress}%
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            <div className="stats-row">
+              <div className="stat-item">
                 <button 
                   onClick={downloadLogFile}
                   style={{ 
@@ -1354,11 +1712,41 @@ export const ForeverMosh = () => {
                     padding: '4px 8px',
                     cursor: 'pointer',
                     fontSize: '0.8rem',
+                    borderRadius: '4px',
+                    marginRight: '4px'
+                  }}
+                >
+                  📊 Download ({allLogs.length})
+                </button>
+                <button 
+                  onClick={manualSaveLogs}
+                  style={{ 
+                    background: '#4ecdc4', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    borderRadius: '4px',
+                    marginRight: '4px'
+                  }}
+                >
+                  💾 Save
+                </button>
+                <button 
+                  onClick={clearLogs}
+                  style={{ 
+                    background: '#dc3545', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
                     borderRadius: '4px'
                   }}
-                                  >
-                    📊 Download Logs ({allLogs.length} entries)
-                  </button>
+                >
+                  🧹 Clear
+                </button>
               </div>
             </div>
 
