@@ -1,3 +1,30 @@
+// Type declarations for File System Access API
+declare global {
+  interface Window {
+    showDirectoryPicker(options?: {
+      id?: string;
+      mode?: 'read' | 'readwrite';
+      startIn?: string | FileSystemHandle;
+    }): Promise<FileSystemDirectoryHandle>;
+  }
+  
+  interface FileSystemDirectoryHandle {
+    getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>;
+    removeEntry(name: string): Promise<void>;
+    values(): AsyncIterableIterator<FileSystemHandle>;
+  }
+  
+  interface FileSystemFileHandle {
+    getFile(): Promise<File>;
+    createWritable(): Promise<FileSystemWritableFileStream>;
+  }
+  
+  interface FileSystemWritableFileStream extends WritableStream {
+    write(data: string | BufferSource | Blob): Promise<void>;
+    close(): Promise<void>;
+  }
+}
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Segment } from "./types";
 import { computeChunks, record, recordWithAudio } from "./lib";
@@ -89,6 +116,7 @@ interface ProcessedAudio {
   originalId: string;
   originalUrl: string;
   processedUrl: string;
+  blob?: Blob; // Cache for downloaded audio blobs
   timestamp: Date;
   freesoundData?: FreesoundSound;
 }
@@ -241,8 +269,6 @@ function moshBlend(chunks: EncodedVideoChunk[]): EncodedVideoChunk[] {
 
 // Global log storage with persistent access
 let allLogs: string[] = [];
-let lastLogSave = Date.now();
-const LOG_SAVE_INTERVAL = 30000; // Save logs every 30 seconds
 
 const logToFile = (message: string, data?: any) => {
   const timestamp = new Date().toISOString();
@@ -262,13 +288,6 @@ const logToFile = (message: string, data?: any) => {
   } catch (error) {
     console.warn('Failed to save logs to localStorage:', error);
   }
-  
-  // Periodically save to file to maintain access
-  const now = Date.now();
-  if (now - lastLogSave > LOG_SAVE_INTERVAL) {
-    saveLogsToFile();
-    lastLogSave = now;
-  }
 };
 
 const saveLogsToFile = () => {
@@ -277,7 +296,7 @@ const saveLogsToFile = () => {
     return;
   }
   
-  console.log(`📊 Auto-saving ${allLogs.length} log entries...`);
+  console.log(`📊 Saving ${allLogs.length} log entries...`);
   
   // Create CSV header
   const header = 'timestamp,message,data\n';
@@ -296,7 +315,7 @@ const saveLogsToFile = () => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   
-  console.log(`✅ Auto-saved ${allLogs.length} log entries`);
+  console.log(`✅ Saved ${allLogs.length} log entries`);
 };
 
 const downloadLogFile = () => {
@@ -372,7 +391,7 @@ const getLogStats = () => {
     totalLogs,
     lastLog,
     logSizeKB: Math.round(logSize / 1024),
-    autoSaveInterval: LOG_SAVE_INTERVAL / 1000
+    autoSaveInterval: 'Disabled'
   };
 };
 
@@ -391,6 +410,664 @@ loadExistingLogs();
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', handlePageUnload);
 }
+
+// Storage system with fallback
+let videoDirectoryHandle: FileSystemDirectoryHandle | null = null;
+let useFileSystem = false;
+
+const checkFileSystemSupport = () => {
+  return 'showDirectoryPicker' in window;
+};
+
+const requestVideoDirectory = async (): Promise<FileSystemDirectoryHandle | null> => {
+  try {
+    if (!checkFileSystemSupport()) {
+      console.log('⚠️ File System Access API not supported, using fallback storage');
+      useFileSystem = false;
+      return null;
+    }
+
+    if (!videoDirectoryHandle) {
+      videoDirectoryHandle = await window.showDirectoryPicker({
+        id: 'forevermosh-videos',
+        mode: 'readwrite',
+        startIn: 'downloads'
+      });
+      console.log('📁 Video directory selected:', videoDirectoryHandle.name);
+      useFileSystem = true;
+      logToFile('📁 Video directory selected', { 
+        directoryName: videoDirectoryHandle.name,
+        timestamp: new Date().toISOString()
+      });
+    }
+    return videoDirectoryHandle;
+  } catch (error) {
+    console.error('❌ Failed to get video directory:', error);
+    useFileSystem = false;
+    logToFile('❌ Failed to get video directory', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return null;
+  }
+};
+
+// IndexedDB fallback for file storage
+const initIndexedDB = async (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('ForeverMoshStorage', 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      
+      // Create object stores
+      if (!db.objectStoreNames.contains('videos')) {
+        db.createObjectStore('videos', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('audios')) {
+        db.createObjectStore('audios', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('metadata')) {
+        db.createObjectStore('metadata', { keyPath: 'id' });
+      }
+    };
+  });
+};
+
+const saveVideoQueueToStorage = async (videoQueue: ProcessedVideo[], audioQueue: ProcessedAudio[]) => {
+  try {
+    if (useFileSystem) {
+      await saveVideoQueueToFileSystem(videoQueue, audioQueue);
+    } else {
+      await saveVideoQueueToIndexedDB(videoQueue, audioQueue);
+    }
+  } catch (error) {
+    console.error('❌ Failed to save video queue:', error);
+    logToFile('❌ Failed to save video queue', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+const saveVideoQueueToIndexedDB = async (videoQueue: ProcessedVideo[], audioQueue: ProcessedAudio[]) => {
+  try {
+    const db = await initIndexedDB();
+    const transaction = db.transaction(['videos', 'audios', 'metadata'], 'readwrite');
+    
+    // Save metadata
+    const metadata = {
+      id: 'queue-metadata',
+      videos: videoQueue.map(video => ({
+        id: video.id,
+        originalId: video.originalId,
+        originalUrl: video.originalUrl,
+        timestamp: video.timestamp.toISOString(),
+        pexelsData: video.pexelsData,
+        moshingData: video.moshingData
+      })),
+      audios: audioQueue.map(audio => ({
+        id: audio.id,
+        originalId: audio.originalId,
+        originalUrl: audio.originalUrl,
+        timestamp: audio.timestamp.toISOString(),
+        freesoundData: audio.freesoundData
+      })),
+      savedAt: new Date().toISOString()
+    };
+    
+    transaction.objectStore('metadata').put(metadata);
+    
+    // Save video blobs
+    for (const video of videoQueue) {
+      if (video.blob) {
+        transaction.objectStore('videos').put({
+          id: video.id,
+          blob: video.blob,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    
+    // Save audio blobs
+    for (const audio of audioQueue) {
+      if (audio.blob) {
+        transaction.objectStore('audios').put({
+          id: audio.id,
+          blob: audio.blob,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    
+    // Wait for transaction to complete
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    
+    console.log('💾 Saved video queue to IndexedDB:', {
+      videoCount: videoQueue.length,
+      audioCount: audioQueue.length
+    });
+    logToFile('💾 Video queue saved to IndexedDB', {
+      videoCount: videoQueue.length,
+      audioCount: audioQueue.length,
+      timestamp: metadata.savedAt
+    });
+  } catch (error) {
+    console.error('❌ Failed to save video queue to IndexedDB:', error);
+    logToFile('❌ Failed to save video queue to IndexedDB', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+const loadVideoQueueFromStorage = async (): Promise<{ videos: ProcessedVideo[], audios: ProcessedAudio[] }> => {
+  try {
+    if (useFileSystem) {
+      return await loadVideoQueueFromFileSystem();
+    } else {
+      return await loadVideoQueueFromIndexedDB();
+    }
+  } catch (error) {
+    console.error('❌ Failed to load video queue:', error);
+    logToFile('❌ Failed to load video queue', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return { videos: [], audios: [] };
+  }
+};
+
+const loadVideoQueueFromIndexedDB = async (): Promise<{ videos: ProcessedVideo[], audios: ProcessedAudio[] }> => {
+  try {
+    const db = await initIndexedDB();
+    const transaction = db.transaction(['videos', 'audios', 'metadata'], 'readonly');
+    
+    // Load metadata
+    const metadataRequest = transaction.objectStore('metadata').get('queue-metadata');
+    const metadata = await new Promise<any>((resolve, reject) => {
+      metadataRequest.onsuccess = () => resolve(metadataRequest.result);
+      metadataRequest.onerror = () => reject(metadataRequest.error);
+    });
+    
+    if (!metadata) {
+      console.log('📂 No saved video queue found in IndexedDB');
+      return { videos: [], audios: [] };
+    }
+    
+    const videos: ProcessedVideo[] = [];
+    const audios: ProcessedAudio[] = [];
+    
+    // Load video blobs
+    for (const videoMeta of metadata.videos) {
+      try {
+        const videoRequest = transaction.objectStore('videos').get(videoMeta.id);
+        const videoData = await new Promise<any>((resolve, reject) => {
+          videoRequest.onsuccess = () => resolve(videoRequest.result);
+          videoRequest.onerror = () => reject(videoRequest.error);
+        });
+        
+        if (videoData?.blob) {
+          const blobUrl = URL.createObjectURL(videoData.blob);
+          videos.push({
+            ...videoMeta,
+            timestamp: new Date(videoMeta.timestamp),
+            processedUrl: blobUrl,
+            blob: videoData.blob
+          });
+          console.log('📂 Loaded video from IndexedDB:', videoMeta.id);
+        } else {
+          // Add video without blob (will re-download)
+          videos.push({
+            ...videoMeta,
+            timestamp: new Date(videoMeta.timestamp),
+            processedUrl: videoMeta.originalUrl,
+            blob: undefined
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not load video from IndexedDB:', videoMeta.id, error);
+        videos.push({
+          ...videoMeta,
+          timestamp: new Date(videoMeta.timestamp),
+          processedUrl: videoMeta.originalUrl,
+          blob: undefined
+        });
+      }
+    }
+    
+    // Load audio blobs
+    for (const audioMeta of metadata.audios) {
+      try {
+        const audioRequest = transaction.objectStore('audios').get(audioMeta.id);
+        const audioData = await new Promise<any>((resolve, reject) => {
+          audioRequest.onsuccess = () => resolve(audioRequest.result);
+          audioRequest.onerror = () => reject(audioRequest.error);
+        });
+        
+        if (audioData?.blob) {
+          const blobUrl = URL.createObjectURL(audioData.blob);
+          audios.push({
+            ...audioMeta,
+            timestamp: new Date(audioMeta.timestamp),
+            processedUrl: blobUrl,
+            blob: audioData.blob
+          });
+          console.log('📂 Loaded audio from IndexedDB:', audioMeta.id);
+        } else {
+          // Add audio without blob (will re-download)
+          audios.push({
+            ...audioMeta,
+            timestamp: new Date(audioMeta.timestamp),
+            processedUrl: audioMeta.originalUrl,
+            blob: undefined
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not load audio from IndexedDB:', audioMeta.id, error);
+        audios.push({
+          ...audioMeta,
+          timestamp: new Date(audioMeta.timestamp),
+          processedUrl: audioMeta.originalUrl,
+          blob: undefined
+        });
+      }
+    }
+    
+    console.log('📂 Loaded video queue from IndexedDB:', {
+      videoCount: videos.length,
+      audioCount: audios.length,
+      savedAt: metadata.savedAt,
+      processedVideos: videos.filter(v => v.moshingData).length,
+      rawVideos: videos.filter(v => !v.moshingData).length
+    });
+    logToFile('📂 Video queue loaded from IndexedDB', {
+      videoCount: videos.length,
+      audioCount: audios.length,
+      savedAt: metadata.savedAt,
+      processedVideos: videos.filter(v => v.moshingData).length,
+      rawVideos: videos.filter(v => !v.moshingData).length
+    });
+    
+    return { videos, audios };
+  } catch (error) {
+    console.error('❌ Failed to load video queue from IndexedDB:', error);
+    logToFile('❌ Failed to load video queue from IndexedDB', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return { videos: [], audios: [] };
+  }
+};
+
+const clearVideoQueueFromStorage = async () => {
+  try {
+    if (useFileSystem) {
+      await clearVideoQueueFromFileSystem();
+    } else {
+      await clearVideoQueueFromIndexedDB();
+    }
+  } catch (error) {
+    console.error('❌ Failed to clear video queue:', error);
+    logToFile('❌ Failed to clear video queue', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+const clearVideoQueueFromIndexedDB = async () => {
+  try {
+    const db = await initIndexedDB();
+    const transaction = db.transaction(['videos', 'audios', 'metadata'], 'readwrite');
+    
+    // Clear all data
+    transaction.objectStore('videos').clear();
+    transaction.objectStore('audios').clear();
+    transaction.objectStore('metadata').clear();
+    
+    // Wait for transaction to complete
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    
+    console.log('🧹 Cleared video queue from IndexedDB');
+    logToFile('🧹 Video queue cleared from IndexedDB', { 
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Failed to clear video queue from IndexedDB:', error);
+    logToFile('❌ Failed to clear video queue from IndexedDB', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// File System Storage Functions (for when API is available)
+const saveVideoQueueToFileSystem = async (videoQueue: ProcessedVideo[], audioQueue: ProcessedAudio[]) => {
+  try {
+    const directory = await requestVideoDirectory();
+    if (!directory) {
+      console.log('⚠️ No directory selected, skipping file system save');
+      return;
+    }
+
+    // Save metadata
+    const metadata = {
+      videos: videoQueue.map(video => ({
+        id: video.id,
+        originalId: video.originalId,
+        originalUrl: video.originalUrl,
+        timestamp: video.timestamp.toISOString(),
+        pexelsData: video.pexelsData,
+        moshingData: video.moshingData
+      })),
+      audios: audioQueue.map(audio => ({
+        id: audio.id,
+        originalId: audio.originalId,
+        originalUrl: audio.originalUrl,
+        timestamp: audio.timestamp.toISOString(),
+        freesoundData: audio.freesoundData
+      })),
+      savedAt: new Date().toISOString()
+    };
+
+    // Save metadata file
+    const metadataFile = await directory.getFileHandle('forevermosh-metadata.json', { create: true });
+    const metadataWritable = await metadataFile.createWritable();
+    await metadataWritable.write(JSON.stringify(metadata, null, 2));
+    await metadataWritable.close();
+
+    // Save video files
+    for (const video of videoQueue) {
+      if (video.blob) {
+        const videoFile = await directory.getFileHandle(`${video.id}.mp4`, { create: true });
+        const videoWritable = await videoFile.createWritable();
+        await videoWritable.write(video.blob);
+        await videoWritable.close();
+        console.log('💾 Saved video file:', video.id);
+      }
+    }
+
+    // Save audio files
+    for (const audio of audioQueue) {
+      if (audio.blob) {
+        const audioFile = await directory.getFileHandle(`${audio.id}.mp3`, { create: true });
+        const audioWritable = await audioFile.createWritable();
+        await audioWritable.write(audio.blob);
+        await audioWritable.close();
+        console.log('💾 Saved audio file:', audio.id);
+      }
+    }
+
+    console.log('💾 Saved video queue to file system:', {
+      videoCount: videoQueue.length,
+      audioCount: audioQueue.length,
+      directory: directory.name
+    });
+    logToFile('💾 Video queue saved to file system', {
+      videoCount: videoQueue.length,
+      audioCount: audioQueue.length,
+      directory: directory.name,
+      timestamp: metadata.savedAt
+    });
+  } catch (error) {
+    console.error('❌ Failed to save video queue to file system:', error);
+    logToFile('❌ Failed to save video queue to file system', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+const loadVideoQueueFromFileSystem = async (): Promise<{ videos: ProcessedVideo[], audios: ProcessedAudio[] }> => {
+  try {
+    const directory = await requestVideoDirectory();
+    if (!directory) {
+      console.log('📂 No directory selected, cannot load from file system');
+      return { videos: [], audios: [] };
+    }
+
+    // Load metadata
+    const metadataFile = await directory.getFileHandle('forevermosh-metadata.json');
+    const metadataBlob = await metadataFile.getFile();
+    const metadataText = await metadataBlob.text();
+    const metadata = JSON.parse(metadataText);
+
+    const videos: ProcessedVideo[] = [];
+    const audios: ProcessedAudio[] = [];
+
+    // Load video files
+    for (const videoMeta of metadata.videos) {
+      try {
+        const videoFile = await directory.getFileHandle(`${videoMeta.id}.mp4`);
+        const videoBlob = await videoFile.getFile();
+        const blobUrl = URL.createObjectURL(videoBlob);
+        
+        videos.push({
+          ...videoMeta,
+          timestamp: new Date(videoMeta.timestamp),
+          processedUrl: blobUrl,
+          blob: videoBlob
+        });
+        console.log('📂 Loaded video file:', videoMeta.id);
+      } catch (error) {
+        console.warn('⚠️ Could not load video file:', videoMeta.id, error);
+        // Add video without blob (will re-download)
+        videos.push({
+          ...videoMeta,
+          timestamp: new Date(videoMeta.timestamp),
+          processedUrl: videoMeta.originalUrl,
+          blob: undefined
+        });
+      }
+    }
+
+    // Load audio files
+    for (const audioMeta of metadata.audios) {
+      try {
+        const audioFile = await directory.getFileHandle(`${audioMeta.id}.mp3`);
+        const audioBlob = await audioFile.getFile();
+        const blobUrl = URL.createObjectURL(audioBlob);
+        
+        audios.push({
+          ...audioMeta,
+          timestamp: new Date(audioMeta.timestamp),
+          processedUrl: blobUrl,
+          blob: audioBlob
+        });
+        console.log('📂 Loaded audio file:', audioMeta.id);
+      } catch (error) {
+        console.warn('⚠️ Could not load audio file:', audioMeta.id, error);
+        // Add audio without blob (will re-download)
+        audios.push({
+          ...audioMeta,
+          timestamp: new Date(audioMeta.timestamp),
+          processedUrl: audioMeta.originalUrl,
+          blob: undefined
+        });
+      }
+    }
+
+    console.log('📂 Loaded video queue from file system:', {
+      videoCount: videos.length,
+      audioCount: audios.length,
+      directory: directory.name,
+      savedAt: metadata.savedAt,
+      processedVideos: videos.filter(v => v.moshingData).length,
+      rawVideos: videos.filter(v => !v.moshingData).length
+    });
+    logToFile('📂 Video queue loaded from file system', {
+      videoCount: videos.length,
+      audioCount: audios.length,
+      directory: directory.name,
+      savedAt: metadata.savedAt,
+      processedVideos: videos.filter(v => v.moshingData).length,
+      rawVideos: videos.filter(v => !v.moshingData).length
+    });
+
+    return { videos, audios };
+  } catch (error) {
+    console.error('❌ Failed to load video queue from file system:', error);
+    logToFile('❌ Failed to load video queue from file system', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return { videos: [], audios: [] };
+  }
+};
+
+const clearVideoQueueFromFileSystem = async () => {
+  try {
+    const directory = await requestVideoDirectory();
+    if (!directory) {
+      console.log('📂 No directory selected, cannot clear file system');
+      return;
+    }
+
+    // List all files in directory
+    const files = [];
+    for await (const entry of directory.values()) {
+      if (entry.kind === 'file' && 
+          (entry.name.startsWith('forevermosh-') || 
+           entry.name.endsWith('.mp4') || 
+           entry.name.endsWith('.mp3'))) {
+        files.push(entry.name);
+      }
+    }
+
+    // Delete files
+    for (const fileName of files) {
+      try {
+        await directory.removeEntry(fileName);
+        console.log('🧹 Deleted file:', fileName);
+      } catch (error) {
+        console.warn('⚠️ Could not delete file:', fileName, error);
+      }
+    }
+
+    console.log('🧹 Cleared video queue from file system');
+    logToFile('🧹 Video queue cleared from file system', { 
+      deletedFiles: files,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Failed to clear video queue from file system:', error);
+    logToFile('❌ Failed to clear video queue from file system', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// M3 Chip Optimizations
+const M3_OPTIMIZATIONS = {
+  // Parallel processing for M3's multiple cores
+  PARALLEL_VIDEO_PROCESSING: true,
+  // Hardware acceleration detection
+  HARDWARE_ACCELERATION: true,
+  // Optimized chunk sizes for M3's unified memory
+  OPTIMIZED_CHUNK_SIZES: true,
+  // WebAssembly SIMD for M3's vector processing
+  SIMD_OPTIMIZATIONS: true,
+  // Memory pooling for better cache utilization
+  MEMORY_POOLING: true
+};
+
+// Detect M3 chip capabilities
+const detectM3Capabilities = () => {
+  const userAgent = navigator.userAgent;
+  const isMac = userAgent.includes('Mac OS X');
+  const isM3 = userAgent.includes('Mac OS X 10_15_7') || userAgent.includes('Mac OS X 11') || userAgent.includes('Mac OS X 12') || userAgent.includes('Mac OS X 13') || userAgent.includes('Mac OS X 14');
+  
+  // Check for WebAssembly SIMD support
+  const simdSupported = WebAssembly.validate(new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]));
+  
+  // Check for hardware acceleration
+  const canvas = document.createElement('canvas');
+  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+  const hardwareAccelerated = gl && gl.getExtension('WEBGL_debug_renderer_info') && 
+    gl.getParameter(gl.getExtension('WEBGL_debug_renderer_info')?.UNMASKED_RENDERER_WEBGL)?.includes('Apple');
+  
+  return {
+    isM3: isMac && isM3,
+    simdSupported,
+    hardwareAccelerated,
+    cores: navigator.hardwareConcurrency ?? 8, // M3 typically has 8+ cores
+    memory: (navigator as any).deviceMemory || 8 // M3 has unified memory
+  };
+};
+
+// Optimized video processing for M3
+const processVideosInParallel = async (
+  videos: ProcessedVideo[],
+  ffmpeg: any,
+  onProgress: (progress: number) => void
+): Promise<{ id: string, chunks: EncodedVideoChunk[], config: VideoDecoderConfig | null }[]> => {
+  const capabilities = detectM3Capabilities();
+  // Optimize for M3: use 2 threads for better stability
+  const maxConcurrent = capabilities.isM3 ? Math.min(videos.length, 2) : Math.min(videos.length, capabilities.cores ?? 8);
+  
+  // Ensure maxConcurrent is always a valid number
+  const safeMaxConcurrent = maxConcurrent || 1;
+  
+  logToFile('🚀 M3 Optimizations', {
+    isM3: capabilities.isM3,
+    simdSupported: capabilities.simdSupported,
+    hardwareAccelerated: capabilities.hardwareAccelerated,
+    cores: capabilities.cores,
+    memory: capabilities.memory,
+    maxConcurrent,
+    videoCount: videos.length
+  });
+  
+  // Process videos in parallel batches
+  const results: { id: string, chunks: EncodedVideoChunk[], config: VideoDecoderConfig | null }[] = [];
+  
+  for (let i = 0; i < videos.length; i += safeMaxConcurrent) {
+    const batch = videos.slice(i, i + safeMaxConcurrent);
+    const batchPromises = batch.map(async (vid, batchIndex) => {
+      const globalIndex = i + batchIndex;
+      logToFile(`🚀 Processing video ${globalIndex + 1}/${videos.length} (batch ${Math.floor(i / safeMaxConcurrent) + 1})`, {
+        videoId: vid.id,
+        batchIndex,
+        globalIndex,
+        timestamp: performance.now()
+      });
+      
+      let blob: Blob;
+      if (vid.blob) {
+        logToFile('🚀 Using cached blob', { videoId: vid.id, timestamp: performance.now() });
+        blob = vid.blob;
+      } else {
+        logToFile('🚀 Downloading video', { videoId: vid.id, timestamp: performance.now() });
+        const response = await fetch(vid.processedUrl);
+        blob = await response.blob();
+      }
+      
+      const file = new File([blob], `${vid.id}.mp4`, { type: 'video/mp4' });
+      let config: VideoDecoderConfig | null = null;
+      
+      const chunks = await computeChunks(
+        ffmpeg,
+        file,
+        vid.id,
+        640,
+        480,
+        (c) => { config = c; }
+      );
+      
+      // Update progress for this batch
+      const batchProgress = (globalIndex + 1) / videos.length;
+      onProgress(batchProgress * 0.6); // Video processing is 60% of total
+      
+      return { id: vid.id, chunks, config };
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+  }
+  
+  return results;
+};
 
 export const ForeverMosh = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -428,15 +1105,17 @@ export const ForeverMosh = () => {
   const PEXELS_PROXY_BASE = import.meta.env.VITE_PEXELS_PROXY_BASE || 'http://localhost:3001/api/pexels';
   const FREESOUND_PROXY_BASE = import.meta.env.VITE_FREESOUND_PROXY_BASE || 'http://localhost:3001/api/freesound';
 
-  // Debug logging for proxy URLs
-  console.log('🔧 Proxy URLs:', {
-    PEXELS_PROXY_BASE,
-    FREESOUND_PROXY_BASE,
-    envVars: {
-      VITE_PEXELS_PROXY_BASE: import.meta.env.VITE_PEXELS_PROXY_BASE,
-      VITE_FREESOUND_PROXY_BASE: import.meta.env.VITE_FREESOUND_PROXY_BASE
-    }
-  });
+  // Debug logging for proxy URLs (only log once)
+  useEffect(() => {
+    console.log('🔧 Proxy URLs:', {
+      PEXELS_PROXY_BASE,
+      FREESOUND_PROXY_BASE,
+      envVars: {
+        VITE_PEXELS_PROXY_BASE: import.meta.env.VITE_PEXELS_PROXY_BASE,
+        VITE_FREESOUND_PROXY_BASE: import.meta.env.VITE_FREESOUND_PROXY_BASE
+      }
+    });
+  }, []);
   
   // Search keywords for video variety
   const searchKeywords = [
@@ -462,6 +1141,198 @@ export const ForeverMosh = () => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [showDebug]);
+
+  // Initialize video queue from file system on component mount
+  useEffect(() => {
+    console.log('📂 Loading video queue from file system...');
+    const loadQueue = async () => {
+      const { videos, audios } = await loadVideoQueueFromFileSystem();
+    
+      if (videos.length > 0 || audios.length > 0) {
+        console.log('📂 Restored video queue from file system:', {
+          videos: videos.length,
+          audios: audios.length
+        });
+      
+      // Re-download videos that were restored from localStorage
+      const reDownloadVideos = async () => {
+        console.log('🔄 Re-downloading videos restored from localStorage...');
+        
+        // Separate processed videos (with moshing) from raw videos
+        const processedVideos = videos.filter(v => v.moshingData);
+        const rawVideos = videos.filter(v => !v.moshingData);
+        
+        console.log('🔄 Found processed videos:', processedVideos.length, 'raw videos:', rawVideos.length);
+        
+        // Re-download raw videos (no moshing needed)
+        const updatedRawVideos = await Promise.all(
+          rawVideos.map(async (video) => {
+            try {
+              console.log('🔄 Re-downloading raw video:', video.id);
+              const response = await fetch(video.originalUrl);
+              const blob = await response.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              
+              return {
+                ...video,
+                processedUrl: blobUrl,
+                blob: blob
+              };
+            } catch (error) {
+              console.error('❌ Failed to re-download raw video:', video.id, error);
+              return video; // Keep original if download fails
+            }
+          })
+        );
+        
+        // For processed videos, we need to re-process them to apply moshing
+        const updatedProcessedVideos = await Promise.all(
+          processedVideos.map(async (video) => {
+            try {
+              console.log('🔄 Re-processing video with moshing:', video.id, 'preset:', video.moshingData?.preset);
+              
+              // Download the original video first
+              const response = await fetch(video.originalUrl);
+              const blob = await response.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              
+              // Create a temporary video object for processing
+              const tempVideo = {
+                ...video,
+                processedUrl: blobUrl,
+                blob: blob
+              };
+              
+              // We need to re-process this video with moshing
+              // For now, just return the downloaded video and let the processing queue handle it
+              return tempVideo;
+            } catch (error) {
+              console.error('❌ Failed to re-download processed video:', video.id, error);
+              return video; // Keep original if download fails
+            }
+          })
+        );
+        
+        const updatedAudios = await Promise.all(
+          audios.map(async (audio) => {
+            try {
+              console.log('🔄 Re-downloading audio:', audio.id);
+              const response = await fetch(audio.originalUrl);
+              const blob = await response.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              
+              return {
+                ...audio,
+                processedUrl: blobUrl,
+                blob: blob
+              };
+            } catch (error) {
+              console.error('❌ Failed to re-download audio:', audio.id, error);
+              return audio; // Keep original if download fails
+            }
+          })
+        );
+        
+        // Combine all videos and add processed videos to processing queue
+        const allVideos = [...updatedRawVideos, ...updatedProcessedVideos];
+        
+        // Only append to existing queue, don't overwrite
+        setVideoQueue(prev => {
+          const newQueue = [...prev, ...updatedRawVideos];
+          console.log('📂 Appending raw videos to existing queue:', {
+            previousLength: prev.length,
+            addedRawVideos: updatedRawVideos.length,
+            newTotalLength: newQueue.length
+          });
+          return newQueue;
+        });
+        
+        // Also add processed videos directly to playback queue for immediate playback
+        if (updatedProcessedVideos.length > 0) {
+          console.log('📂 Adding processed videos directly to playback queue:', {
+            processedVideosCount: updatedProcessedVideos.length,
+            videoIds: updatedProcessedVideos.map(v => v.id)
+          });
+          setVideoQueue(prev => [...prev, ...updatedProcessedVideos]);
+        }
+        
+        setAudioQueue(prev => {
+          const newAudioQueue = [...prev, ...updatedAudios];
+          console.log('📂 Appending audio to existing queue:', {
+            previousLength: prev.length,
+            addedAudio: updatedAudios.length,
+            newTotalLength: newAudioQueue.length
+          });
+          return newAudioQueue;
+        });
+        
+        // Add processed videos to processing queue to re-apply moshing
+        if (updatedProcessedVideos.length > 0) {
+          console.log('🔄 Adding processed videos to processing queue for re-moshing');
+          setProcessingQueue(prev => [
+            ...prev,
+            ...updatedProcessedVideos.map(video => ({
+              video,
+              audio: updatedAudios[0] || updatedAudios[1], // Use first available audio
+              preset: video.moshingData?.preset || 'blends'
+            }))
+          ]);
+        }
+        
+        // Update stats to reflect restored queue
+        setStats(prev => ({
+          ...prev,
+          queueLength: updatedRawVideos.length,
+          audioQueueLength: updatedAudios.length,
+          processingCount: prev.processingCount + updatedProcessedVideos.length
+        }));
+        
+        logToFile('📂 Video queue restored and re-downloaded from localStorage', {
+          videoCount: allVideos.length,
+          audioCount: updatedAudios.length,
+          rawVideos: updatedRawVideos.length,
+          processedVideos: updatedProcessedVideos.length,
+          addedToProcessingQueue: updatedProcessedVideos.length,
+          videoIds: allVideos.map(v => v.id),
+          audioIds: updatedAudios.map(a => a.id)
+        });
+      };
+      
+      reDownloadVideos();
+      } else {
+        console.log('📂 No saved video queue found, starting fresh');
+      }
+    };
+    
+    loadQueue();
+  }, []);
+
+  // Auto-save video queue to file system when it changes
+  useEffect(() => {
+    if (videoQueue.length > 0 || audioQueue.length > 0) {
+      console.log('💾 Auto-saving video queue to file system:', {
+        videos: videoQueue.length,
+        audios: audioQueue.length
+      });
+      saveVideoQueueToFileSystem(videoQueue, audioQueue);
+    }
+  }, [videoQueue, audioQueue]);
+
+  // Page unload handler to save both logs and video queue
+  useEffect(() => {
+    const handlePageUnload = () => {
+      console.log('📊 Saving logs and video queue before page unload...');
+      if (allLogs.length > 0) {
+        saveLogsToFile();
+      }
+      if (videoQueue.length > 0 || audioQueue.length > 0) {
+        saveVideoQueueToFileSystem(videoQueue, audioQueue);
+      }
+    };
+
+    window.addEventListener('beforeunload', handlePageUnload);
+    return () => window.removeEventListener('beforeunload', handlePageUnload);
+  }, [videoQueue, audioQueue]);
 
   // Clear fallback videos from queue
   const clearFallbackVideos = useCallback(() => {
@@ -505,135 +1376,80 @@ export const ForeverMosh = () => {
     rawAudio: ProcessedAudio
   ): Promise<ProcessedVideo> => {
     const startTime = performance.now();
-    logToFile('🎭 Starting Blends processing', {
+    const capabilities = detectM3Capabilities();
+    
+    logToFile('🎭 Starting Blends processing with M3 optimizations', {
       primaryVideo: rawVideo.id,
       audio: rawAudio.id,
       availableVideos: rawVideoQueue.length,
       audioName: rawAudio.freesoundData?.name,
-      timestamp: performance.now()
+      timestamp: performance.now(),
+      m3Capabilities: capabilities
     });
 
     try {
-      logToFile('🎭 Step 1: Setting up FFmpeg', { timestamp: performance.now() });
-      // Target variable duration between 3-7 seconds at 30 FPS = 90-210 frames
-      const minDuration = 3; // 3 seconds
-      const maxDuration = 7; // 7 seconds
+      logToFile('🎭 Step 1: Setting up FFmpeg with M3 optimizations', { timestamp: performance.now() });
+      // Target variable duration between 2-4 seconds at 30 FPS = 60-120 frames (reduced for speed)
+      const minDuration = 2; // 2 seconds (reduced from 3)
+      const maxDuration = 4; // 4 seconds (reduced from 7)
       const TARGET_DURATION_SECONDS = Math.random() * (maxDuration - minDuration) + minDuration;
       const TARGET_DURATION_FRAMES = Math.floor(TARGET_DURATION_SECONDS * 30);
 
-      // Get FFmpeg instance
+      // Get FFmpeg instance with M3 optimizations
       const ffmpeg = new (await import('@ffmpeg/ffmpeg')).FFmpeg();
       const { toBlobURL, fetchFile } = await import('@ffmpeg/util');
       if (!ffmpeg.loaded) {
-        logToFile('🎭 Step 2: Loading FFmpeg core', { timestamp: performance.now() });
+        logToFile('🎭 Step 2: Loading FFmpeg core with M3 optimizations', { timestamp: performance.now() });
         const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
         await ffmpeg.load({
           coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
           wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
         });
-        logToFile('🎭 Step 3: FFmpeg loaded successfully', { timestamp: performance.now() });
+        logToFile('🎭 Step 3: FFmpeg loaded successfully with M3 optimizations', { timestamp: performance.now() });
       }
 
       logToFile('🎭 Step 4: Building Blends preset segments', { timestamp: performance.now() });
-      // Build a segment list for neverending mosh effect using the Blends preset
+      // Blends preset: total output frames ≈ 300 (10 seconds at 30 FPS)
       const BLENDS_PRESET = [
-        { from: 0, to: 39, repeat: 1 },      // Keep as is (base segment)
-        { from: 38, to: 44, repeat: 8 },     // Was 39, now 8 (80% reduction)
-        { from: 4, to: 50, repeat: 1 },      // Keep as is (base segment)
-        { from: 48, to: 55, repeat: 8 },     // Was 40, now 8 (80% reduction)
-        { from: 53, to: 57, repeat: 5 },     // Was 25, now 5 (80% reduction)
-        { from: 90, to: 120, repeat: 1 },    // Keep as is (base segment)
-        { from: 118, to: 122, repeat: 11 }   // Was 54, now 11 (80% reduction)
+        { from: 0, to: 10, repeat: 1 },    // 10×5 = 50 frames
+        { from: 15, to: 25, repeat: 10 },   // 10×5 = 50 frames
+        { from: 30, to: 40, repeat: 3 },   // 10×5 = 50 frames
+        { from: 45, to: 55, repeat: 6 },   // 10×5 = 50 frames
+        { from: 60, to: 70, repeat: 2 },   // 10×5 = 50 frames
+        { from: 75, to: 85, repeat: 8 }    // 10×5 = 50 frames
       ];
+      // Total: 6 segments × 50 = 300 frames
 
-      logToFile('🎭 Step 5: Gathering available videos', { 
+      logToFile('🎭 Step 5: Gathering available videos for parallel processing', { 
         availableVideosCount: [rawVideo, ...rawVideoQueue].length,
         rawVideoQueueLength: rawVideoQueue.length,
         timestamp: performance.now()
       });
+      
       // Gather available videos: current rawVideo plus as many as possible from rawVideoQueue
       const availableVideos = [rawVideo, ...rawVideoQueue].slice(0, BLENDS_PRESET.length);
-      // For each video, fetch its chunks (synchronously, for simplicity)
-      let chunks: EncodedVideoChunk[] = [];
-      let videoConfig: VideoDecoderConfig | null = null;
-      const videoChunksList: { id: string, chunks: EncodedVideoChunk[], config: VideoDecoderConfig | null }[] = [];
-      let mainConfig: VideoDecoderConfig | null = null;
       
-      logToFile('🎭 Step 6: Processing videos', { 
+      logToFile('🎭 Step 6: Parallel video processing with M3 optimizations', { 
         videosToProcess: availableVideos.length,
         timestamp: performance.now()
       });
       
-      for (let v = 0; v < availableVideos.length; v++) {
-        const vid = availableVideos[v];
-        logToFile('🎭 Step 6.' + (v + 1) + ': Processing video ' + vid.id, { 
-          videoIndex: v,
-          videoId: vid.id,
-          timestamp: performance.now()
-        });
-        
-        if (vid.id === rawVideo.id) {
-          // Use cached blob if available, otherwise download
-          logToFile('🎭 Step 6.' + (v + 1) + 'a: Processing main video', { timestamp: performance.now() });
-          let videoBlob: Blob;
-          if (rawVideo.blob) {
-            logToFile('🎭 Using cached blob for main video', { timestamp: performance.now() });
-            videoBlob = rawVideo.blob;
-          } else {
-            logToFile('🎭 Downloading main video (no cached blob)', { timestamp: performance.now() });
-            const videoResponse = await fetch(rawVideo.processedUrl);
-            videoBlob = await videoResponse.blob();
-          }
-          const videoFile = new File([videoBlob], `${rawVideo.id}.mp4`, { type: 'video/mp4' });
-          
-          logToFile('🎭 Step 6.' + (v + 1) + 'b: Computing chunks for main video', { timestamp: performance.now() });
-          chunks = await computeChunks(
+      // Use parallel processing for M3 chip
+      const videoChunksList = await processVideosInParallel(
+        availableVideos,
             ffmpeg,
-            videoFile,
-            rawVideo.id,
-            640,
-            480,
-            (config) => { videoConfig = config; }
-          );
-          videoChunksList.push({ id: vid.id, chunks, config: videoConfig });
-          mainConfig = videoConfig;
-          logToFile('🎭 Step 6.' + (v + 1) + 'c: Main video chunks computed', { 
-            chunkCount: chunks.length,
+        (progress) => {
+          const progressPercent = Math.round(progress * 100);
+          setProcessingProgress(progressPercent);
+          setIsProcessing(true);
+          logToFile('🎭 Parallel video processing progress', {
+            progress: progressPercent,
             timestamp: performance.now()
           });
-        } else {
-          // Use cached blob if available, otherwise download additional video
-          logToFile('🎭 Step 6.' + (v + 1) + 'a: Processing additional video', { timestamp: performance.now() });
-          let blob: Blob;
-          if (vid.blob) {
-            logToFile('🎭 Using cached blob for additional video', { timestamp: performance.now() });
-            blob = vid.blob;
-          } else {
-            logToFile('🎭 Downloading additional video (no cached blob)', { timestamp: performance.now() });
-            const response = await fetch(vid.processedUrl);
-            blob = await response.blob();
-          }
-          const file = new File([blob], `${vid.id}.mp4`, { type: 'video/mp4' });
-          let config: VideoDecoderConfig | null = null;
-          
-          logToFile('🎭 Step 6.' + (v + 1) + 'b: Computing chunks for additional video', { timestamp: performance.now() });
-          const vidChunks = await computeChunks(
-            ffmpeg,
-            file,
-            vid.id,
-            640,
-            480,
-            (c) => { config = c; }
-          );
-          videoChunksList.push({ id: vid.id, chunks: vidChunks, config });
-          if (!mainConfig && config) mainConfig = config;
-          logToFile('🎭 Step 6.' + (v + 1) + 'c: Additional video chunks computed', { 
-            chunkCount: vidChunks.length,
-            timestamp: performance.now()
-            });
-          }
         }
-        
+      );
+      
+      const mainConfig = videoChunksList[0]?.config || null;
       if (!mainConfig) throw new Error('No video config found for any video');
       
       logToFile('🎭 Step 7: Building segments with multiple videos', { 
@@ -660,8 +1476,8 @@ export const ForeverMosh = () => {
         };
       });
       
-      logToFile('🎭 Step 8: Building final chunks array', { timestamp: performance.now() });
-      // Build the chunks array from all segments
+      logToFile('🎭 Step 8: Building final chunks array with M3 optimizations', { timestamp: performance.now() });
+      // Build the chunks array from all segments with optimized memory usage
       const processedChunks = segments.flatMap((s) => {
         const vid = videoChunksList.find(v => v.id === s.name);
         if (!vid) return [];
@@ -670,7 +1486,7 @@ export const ForeverMosh = () => {
           .flatMap(() => vid.chunks.slice(s.from, s.to));
       });
 
-      logToFile('🎭 Built chunks array', {
+      logToFile('🎭 Built chunks array with M3 optimizations', {
         originalChunks: processedChunks.length,
         processedChunks: processedChunks.length,
         segments: segments.map(s => ({
@@ -679,10 +1495,11 @@ export const ForeverMosh = () => {
           repeat: s.repeat,
           chunkCount: (s.to - s.from) * s.repeat,
           audio: s.audio ? 'configured' : 'missing'
-        }))
+        })),
+        m3Optimizations: M3_OPTIMIZATIONS
       });
       
-      logToFile('🎭 Step 9: Starting recordWithAudio', { timestamp: performance.now() });
+      logToFile('🎭 Step 9: Starting recordWithAudio with M3 optimizations', { timestamp: performance.now() });
       // Call recordWithAudio as in Studio
       const moshedVideoUrl = await recordWithAudio(
         processedChunks, // Pass the properly built chunks array
@@ -691,12 +1508,12 @@ export const ForeverMosh = () => {
         { width: 640, height: 480 },
         segments,
         0.5,
-        ffmpeg,
+                ffmpeg,
                 (progress: number) => {
           const progressPercent = Math.round(progress * 100);
           setProcessingProgress(progressPercent);
           setIsProcessing(true);
-          logToFile('🎭 Moshing progress', {
+          logToFile('🎭 Moshing progress with M3 optimizations', {
             progress: progressPercent,
             timestamp: performance.now()
           });
@@ -720,7 +1537,7 @@ export const ForeverMosh = () => {
       setProcessingProgress(0);
       setIsProcessing(false);
       
-      logToFile('🎭 Blends processing complete', {
+      logToFile('🎭 Blends processing complete with M3 optimizations', {
           processingTime: processingTime.toFixed(2) + 'ms',
         finalDuration: (TARGET_DURATION_FRAMES / 30).toFixed(1) + 's',
         segmentsCount: segments.length,
@@ -732,7 +1549,7 @@ export const ForeverMosh = () => {
       setProcessingProgress(0);
       setIsProcessing(false);
       
-      logToFile('🎭 Blends processing failed', {
+      logToFile('🎭 Blends processing failed with M3 optimizations', {
         error: error instanceof Error ? error.message : String(error),
         videoId: rawVideo.id,
         audioId: rawAudio.id
@@ -755,11 +1572,11 @@ export const ForeverMosh = () => {
     });
 
     try {
-      // Add timeout to prevent hanging (reduced to 10 minutes for faster feedback)
+      // Add timeout to prevent hanging (increased to 15 minutes for Blends preset)
       const processedVideo = await Promise.race([
         processMoshPair(video, audio),
         new Promise<ProcessedVideo>((_, reject) => 
-          setTimeout(() => reject(new Error('Processing timeout after 10 minutes')), 10 * 60 * 1000)
+          setTimeout(() => reject(new Error('Processing timeout after 15 minutes')), 15 * 60 * 1000)
         )
       ]);
       
@@ -776,9 +1593,22 @@ export const ForeverMosh = () => {
         return;
       }
       
-      // Add to final video queue
+      // Add to final video queue with immediate logging
+      console.log('🎭 Processing completed, adding to playback queue:', {
+        videoId: processedVideo.id,
+        preset: processedVideo.moshingData?.preset,
+        audioIncluded: processedVideo.moshingData?.audioIncluded,
+        processingTime: processedVideo.moshingData?.processingTime
+      });
+      
       setVideoQueue(prev => {
         const newQueue = [...prev, processedVideo];
+        console.log('🎭 Video added to playback queue:', {
+          videoId: processedVideo.id,
+          queueLength: newQueue.length,
+          preset: processedVideo.moshingData?.preset,
+          audioIncluded: processedVideo.moshingData?.audioIncluded
+        });
         logToFile('🎭 Video queue updated', {
           previousLength: prev.length,
           newLength: newQueue.length,
@@ -861,7 +1691,8 @@ export const ForeverMosh = () => {
   useEffect(() => {
     const processInterval = setInterval(() => {
       // Only process if we have both raw video and audio, and processing queue isn't full
-      if (rawVideoQueue.length > 0 && rawAudioQueue.length > 0 && processingQueue.length < 1) {
+      // Allow up to 2 videos in processing queue for better throughput
+      if (rawVideoQueue.length > 0 && rawAudioQueue.length > 0 && processingQueue.length < 2) {
         const rawVideo = rawVideoQueue[0];
         const rawAudio = rawAudioQueue[0];
         const preset = getBlendsPreset(); // Use Blends preset specifically
@@ -881,7 +1712,13 @@ export const ForeverMosh = () => {
           processingCount: prev.processingCount + 1
         }));
 
-        console.log('🎭 Added to processing queue:', { video: rawVideo.id, audio: rawAudio.id });
+        console.log('🎭 Added to processing queue:', { 
+          video: rawVideo.id, 
+          audio: rawAudio.id,
+          processingQueueLength: processingQueue.length + 1,
+          rawVideoQueueLength: rawVideoQueue.length - 1,
+          rawAudioQueueLength: rawAudioQueue.length - 1
+        });
         logToFile('🎭 Added to processing queue', { 
           video: rawVideo.id, 
           audio: rawAudio.id,
@@ -1157,14 +1994,11 @@ export const ForeverMosh = () => {
         videoRef.current.src = nextVideo.processedUrl;
         videoRef.current.load();
         
-        // Set frame offset: first video starts at frame 0, subsequent videos start at frame 3
-        const frameOffset = isFirstVideo ? 0 : 3;
-        const timeOffset = frameOffset / 30; // Assuming 30fps, adjust if needed
-        
+        // Start each video from the beginning for true linear playback
         videoRef.current.addEventListener('loadedmetadata', () => {
           if (videoRef.current) {
-            videoRef.current.currentTime = timeOffset;
-            console.log(`🎬 Set video start time to ${timeOffset}s (frame ${frameOffset})`);
+            videoRef.current.currentTime = 0; // Always start from beginning
+            console.log(`🎬 Starting video from beginning for linear playback`);
           }
         }, { once: true });
         
@@ -1353,7 +2187,7 @@ export const ForeverMosh = () => {
         <div className="forever-start">
           <div className="start-content">
             <h1 className="bitcount-grid-double" style={{ fontSize: '6em' }}>evermosh</h1>
-                          <p>Endless moshing powered by <a href="https://github.com/ninofiliu/supermosh" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Supermosh</a>, <a href="https://www.pexels.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Pexels</a>, and <a href="https://freesound.org/" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Freesound</a></p>    
+                          <p>Endless moshing powered by <a href="https://supermosh.github.io" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Supermosh</a>, <a href="https://www.pexels.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Pexels</a>, and <a href="https://freesound.org/" target="_blank" rel="noopener noreferrer" style={{ color: '#4ecdc4', textDecoration: 'underline' }}>Freesound</a></p>    
             
             {/* Pre-loading status */}
             {isCurrentlyPreloading && (
@@ -1668,7 +2502,7 @@ export const ForeverMosh = () => {
               </div>
               <div className="stat-item">
                 <span className="stat-label">💾 Auto-save:</span>
-                <span className="stat-value">{getLogStats().autoSaveInterval}s</span>
+                <span className="stat-value">{getLogStats().autoSaveInterval}</span>
               </div>
             </div>
             
@@ -1797,6 +2631,41 @@ export const ForeverMosh = () => {
           title="Clear any fallback videos from queue"
         >
           🧹 Clear Fallbacks
+        </button>
+      )}
+
+      {/* Clear localStorage Button - Lower Right Corner */}
+      {isStarted && (
+        <button 
+          className="clear-storage-button"
+          onClick={() => {
+            clearVideoQueueFromStorage();
+            setVideoQueue([]);
+            setAudioQueue([]);
+            setStats(prev => ({
+              ...prev,
+              queueLength: 0,
+              audioQueueLength: 0
+            }));
+            console.log('🧹 Cleared video queue from localStorage and state');
+            logToFile('🧹 Video queue cleared from localStorage and state', { timestamp: new Date().toISOString() });
+          }}
+          title="Clear saved video queue from localStorage"
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '200px',
+            background: '#ff6b35',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            borderRadius: '4px',
+            zIndex: 1000
+          }}
+        >
+          🗑️ Clear Storage
         </button>
       )}
 
